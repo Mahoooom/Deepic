@@ -26,6 +26,10 @@ jobs:
         with:
           workspaces: "./src-tauri -> target"
 
+      # tauri-action creates/updates GitHub Release tag v{version} from
+      # tauri.conf.json / Cargo.toml and uploads .exe + .msi.
+      # Same version on a later main push rebuilds and replaces those assets.
+      # Bump the app version when you want a new release tag.
       - name: Build Windows app (unsigned) and publish
         uses: tauri-apps/tauri-action@v0
         env:
@@ -35,6 +39,8 @@ jobs:
           releaseName: Deepic v__VERSION__
           releaseBody: |
             图片旋转压缩工具 Windows 安装包（未代码签名）。
+
+            构建提交: ${{ github.sha }}
 
             下载 Assets 中的 `.exe` / `.msi` 安装即可。若 Windows 提示未知发布者，选择“仍要运行”即可。
           releaseDraft: false
