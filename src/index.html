@@ -20,12 +20,13 @@
 }
 *{box-sizing:border-box}
 [hidden]{display:none !important}
-html,body{margin:0;padding:0}
+html,body{margin:0;padding:0;min-height:100%}
 body{
   background:var(--bg);color:var(--text);
   font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
   -webkit-font-smoothing:antialiased;
 }
+body.file-drag{box-shadow:inset 0 0 0 3px var(--brand)}
 button{font-family:inherit;font-size:13.5px;cursor:pointer;border-radius:9px;border:1px solid var(--line);background:#fff;color:var(--text);padding:8px 12px;transition:.15s;line-height:1.2}
 button:hover{border-color:#D8CFC5;background:#FCFAF8}
 button:active{transform:translateY(.5px)}
@@ -209,7 +210,7 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
 <div class="wrap">
   <header class="head">
     <h1>图片旋转压缩</h1>
-    <p class="sub">拖进来 → 转一下 → 导出。图片全程只在你自己的电脑上处理，不会上传到任何地方。</p>
+    <p class="sub">拖进来 → 转一下 → 导出。图片全程只在你自己的电脑上处理，不会上传到任何地方。版本 0.1.2</p>
   </header>
 
   <div class="layout">
@@ -217,10 +218,10 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
       <div id="drop" class="drop">
         <div class="drop-icon">＋</div>
         <div class="drop-title">把图片或整个文件夹拖到这里</div>
-        <div class="drop-hint">点这里选择图片 · 支持 JPG / PNG / WebP · 可多选 · 也可以按 Ctrl+V 粘贴截图</div>
+        <div class="drop-hint">点这里选择图片 · 支持 JPG / PNG / WebP / GIF / BMP · 可多选 · 也可以按 Ctrl+V 粘贴截图</div>
         <button id="btnOpenFolder" class="drop-btn">选择文件夹导入</button>
         <div class="drop-note">用这种方式导入，工具才知道图片在哪个文件夹，转完能直接存回原处</div>
-        <input id="file" type="file" accept="image/*" multiple hidden>
+        <input id="file" type="file" accept=".jpg,.jpeg,.png,.webp,.gif,.bmp" multiple hidden>
       </div>
 
       <div id="toolbar" class="toolbar" hidden>
@@ -358,7 +359,7 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
 
               <div id="wmImagePart" hidden>
                 <button id="wmLogoBtn" class="wm-file-btn">选择标志图片（PNG 透明底最佳）</button>
-                <input type="file" id="wmLogo" accept="image/*" hidden>
+                <input type="file" id="wmLogo" accept=".jpg,.jpeg,.png,.webp,.gif,.bmp" hidden>
                 <div class="field-top"><label>大小</label><b id="wmLogoVal">18%</b></div>
                 <input id="wmLogoScale" type="range" min="5" max="60" value="18">
               </div>
@@ -426,6 +427,7 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
     wmKey: 0,
     exportMode: 'download',
     dirHandle: null,
+    dirNeedsGrant: false,
     overwrite: false,
     writing: false
   };
@@ -667,7 +669,7 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
     if (it.flipH) suffix += '_mh';
     if (it.flipV) suffix += '_mv';
     if (!suffix) suffix = '_处理后';
-    return base + suffix + '.' + extOf(it.mime || outputMime(it));
+    return leafName(base + suffix + '.' + extOf(it.mime || outputMime(it)));
   }
 
   /* 原文件扩展名（不含点、小写）；取不到时返回空串 */
@@ -697,7 +699,7 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
 
   /* 覆盖就是写同名文件：直接沿用原文件名，不按 MIME 推导，也不改大小写 */
   function overwriteName(it) {
-    return it.name;
+    return leafName(it.name);
   }
 
   /* ---------- 编码 ---------- */
@@ -1129,10 +1131,329 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
     });
   }
 
+  /* ---------- 桌面：系统对话框、拖放路径、受限文件读写 ---------- */
+
+  var DESKTOP = !!(window.isTauri && window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.invoke);
+  var IMAGE_FILTERS = [{ name: '图片', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'] }];
+
+  function errText(err) {
+    if (!err) return '未知错误';
+    if (typeof err === 'string') return err;
+    return err.message || String(err);
+  }
+
+  function tauriInvoke(cmd, args, options) {
+    return window.__TAURI__.core.invoke(cmd, args || {}, options);
+  }
+
+  function dialogOpen(options) {
+    return tauriInvoke('plugin:dialog|open', { options: options });
+  }
+
+  function fsReadFile(path) {
+    return tauriInvoke('plugin:fs|read_file', { path: path }).then(function (arr) {
+      if (!arr) return new Uint8Array(0);
+      if (arr instanceof Uint8Array) return arr;
+      if (arr instanceof ArrayBuffer) return new Uint8Array(arr);
+      return Uint8Array.from(arr);
+    });
+  }
+
+  function fsReadDir(path) {
+    return tauriInvoke('plugin:fs|read_dir', { path: path });
+  }
+
+  function fsStat(path) {
+    return tauriInvoke('plugin:fs|stat', { path: path });
+  }
+
+  function fsExists(path) {
+    return tauriInvoke('plugin:fs|exists', { path: path });
+  }
+
+  function fsMkdir(path) {
+    return tauriInvoke('plugin:fs|mkdir', {
+      path: path,
+      options: { recursive: true, baseDir: null }
+    });
+  }
+
+  function fsWriteFile(path, bytes) {
+    var data = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+    return tauriInvoke('plugin:fs|write_file', data, {
+      headers: { path: encodeURIComponent(path) }
+    });
+  }
+
+  function delay(ms) {
+    return new Promise(function (res) { setTimeout(res, ms); });
+  }
+
+  function pathSep(p) {
+    return (p && (p.indexOf('\\') >= 0 || /^[A-Za-z]:/.test(p))) ? '\\' : '/';
+  }
+
+  function pathJoin(dir, name) {
+    if (!dir) return name;
+    var last = dir.charAt(dir.length - 1);
+    if (last === '/' || last === '\\') return dir + name;
+    return dir + pathSep(dir) + name;
+  }
+
+  function pathBase(p) {
+    var s = String(p || '');
+    var i = Math.max(s.lastIndexOf('/'), s.lastIndexOf('\\'));
+    return i >= 0 ? s.slice(i + 1) : s;
+  }
+
+  function trimPath(p) {
+    var s = String(p || '');
+    if (/^[A-Za-z]:\\?$/.test(s)) return s.charAt(0) + ':\\';
+    return s.replace(/[\\/]+$/, '');
+  }
+
+  function leafName(name) {
+    var base = String(name || 'image').split(/[/\\]/).pop() || 'image';
+    base = base.replace(/[\u0000-\u001f]/g, '').replace(/[:"*?<>|]/g, '_');
+    if (!base || base === '.' || base === '..') base = 'image';
+    if (base.length > 180) {
+      var dot = base.lastIndexOf('.');
+      if (dot > 0 && base.length - dot < 10) base = base.slice(0, 170) + base.slice(dot);
+      else base = base.slice(0, 180);
+    }
+    return base;
+  }
+
+  function folderFromPath(p) {
+    var path = trimPath(p);
+    return { kind: 'path', path: path || String(p || ''), name: pathBase(path || p) || '文件夹' };
+  }
+
+  function sameDir(a, b) {
+    if (a === b) return true;
+    if (a && b && a.kind === 'path' && b.kind === 'path') return a.path === b.path;
+    return false;
+  }
+
+  function mimeFromName(name) {
+    var m = /\.([^.]+)$/.exec(name || '');
+    var e = (m ? m[1] : '').toLowerCase();
+    if (e === 'jpg' || e === 'jpeg' || e === 'jpe') return 'image/jpeg';
+    if (e === 'png') return 'image/png';
+    if (e === 'webp') return 'image/webp';
+    if (e === 'gif') return 'image/gif';
+    if (e === 'bmp') return 'image/bmp';
+    return '';
+  }
+
+  function fileFromBytes(name, bytes) {
+    var type = mimeFromName(name);
+    var blob = new Blob([bytes], { type: type || 'application/octet-stream' });
+    try {
+      return new File([blob], name, { type: type });
+    } catch (e) {
+      blob.name = name;
+      return blob;
+    }
+  }
+
+  function asPathList(selected) {
+    if (!selected) return [];
+    var list = Array.isArray(selected) ? selected : [selected];
+    var out = [];
+    for (var i = 0; i < list.length; i++) {
+      var v = list[i];
+      if (typeof v === 'string' && v) out.push(v);
+      else if (v && typeof v.path === 'string' && v.path) out.push(v.path);
+    }
+    return out;
+  }
+
+  function entryIsDir(ent) {
+    return !!(ent && (ent.isDirectory || ent.is_directory));
+  }
+
+  function entryIsFile(ent) {
+    return !!(ent && (ent.isFile || ent.is_file));
+  }
+
+  async function collectFromPath(dirPath, depth, out, limit) {
+    if (out.length >= limit || depth > 8) return;
+    var entries;
+    try {
+      entries = await fsReadDir(dirPath);
+    } catch (e) {
+      if (depth === 0) throw e;
+      return;
+    }
+    entries.sort(function (a, b) {
+      return String(a.name || '').localeCompare(String(b.name || ''), 'zh');
+    });
+    for (var i = 0; i < entries.length; i++) {
+      if (out.length >= limit) return;
+      var ent = entries[i];
+      if (!ent || !ent.name || ent.name === '.' || ent.name === '..') continue;
+      var child = pathJoin(dirPath, ent.name);
+      if (entryIsDir(ent)) {
+        await collectFromPath(child, depth + 1, out, limit);
+      } else if (entryIsFile(ent) && IMG_EXT_RE.test(ent.name)) {
+        try {
+          var bytes = await fsReadFile(child);
+          out.push({ file: fileFromBytes(ent.name, bytes), dir: folderFromPath(dirPath) });
+        } catch (e2) { /* 单张读失败就跳过 */ }
+      }
+    }
+  }
+
+  async function importFromPath(dirPath) {
+    var found = [];
+    try {
+      await collectFromPath(dirPath, 0, found, MAX_COUNT);
+    } catch (e) {
+      toast('读不了这个文件夹：' + errText(e));
+      return;
+    }
+    if (!found.length) { toast('这个文件夹里没有找到图片'); return; }
+
+    var handle = folderFromPath(dirPath);
+    state.dirHandle = handle;
+    state.dirNeedsGrant = false;
+    state.exportMode = 'folder';
+    idbSet('dir', { kind: 'path', path: handle.path, name: handle.name });
+    updateFolderUI();
+    syncExportModeUI();
+
+    var groups = [];
+    found.forEach(function (f) {
+      var g = null;
+      for (var i = 0; i < groups.length; i++) {
+        if (sameDir(groups[i].dir, f.dir)) { g = groups[i]; break; }
+      }
+      if (!g) { g = { dir: f.dir, files: [] }; groups.push(g); }
+      g.files.push(f.file);
+    });
+
+    var added = 0, skipped = 0, fail = 0;
+    for (var gi = 0; gi < groups.length; gi++) {
+      var r = await addFiles(groups[gi].files, groups[gi].dir, true);
+      added += r.added; skipped += r.skipped; fail += r.fail;
+    }
+    renderGrid();
+    scheduleEncode();
+
+    var msg = '已从「' + handle.name + '」导入 ' + added + ' 张，转完可以存回原文件夹';
+    if (skipped) msg += '\n' + skipped + ' 张未导入（超出总量 2 亿像素上限）';
+    if (fail) msg += '\n' + fail + ' 张打不开';
+    toast(msg, (skipped || fail) ? 5400 : 4200);
+  }
+
+  async function importPathFiles(paths) {
+    var plain = [];
+    var failRead = 0;
+    for (var i = 0; i < paths.length; i++) {
+      if (!IMG_EXT_RE.test(pathBase(paths[i]))) continue;
+      try {
+        var bytes = await fsReadFile(paths[i]);
+        plain.push(fileFromBytes(pathBase(paths[i]), bytes));
+      } catch (e) { failRead++; }
+    }
+    if (!plain.length) {
+      toast(failRead ? '图片读不出来，请重新选择' : '没有识别到图片文件');
+      return { added: 0, fail: failRead, skipped: 0 };
+    }
+    return importPlainFiles(plain);
+  }
+
+  async function importDroppedPaths(paths) {
+    var files = [];
+    var dirs = [];
+    for (var i = 0; i < paths.length; i++) {
+      var p = paths[i];
+      var info = null;
+      try {
+        info = await fsStat(p);
+      } catch (e) {
+        try { info = await delay(150).then(function () { return fsStat(p); }); }
+        catch (e2) { info = null; }
+      }
+      if (!info) continue;
+      if (entryIsDir(info)) dirs.push(p);
+      else if (entryIsFile(info)) files.push(p);
+    }
+    for (var d = 0; d < dirs.length; d++) await importFromPath(dirs[d]);
+    var images = files.filter(function (p) { return IMG_EXT_RE.test(pathBase(p)); });
+    if (images.length) await importPathFiles(images);
+    else if (!dirs.length) toast('没有识别到图片文件');
+  }
+
+  function pickImageFiles() {
+    if (!DESKTOP) { elFile.click(); return; }
+    dialogOpen({
+      title: '选择图片',
+      multiple: true,
+      directory: false,
+      filters: IMAGE_FILTERS
+    }).then(function (selected) {
+      var paths = asPathList(selected);
+      if (!paths.length) return;
+      return importPathFiles(paths);
+    }, function (err) {
+      toast('选择失败：' + errText(err));
+    });
+  }
+
+  function pickWatermarkLogo() {
+    if (!DESKTOP) { document.getElementById('wmLogo').click(); return; }
+    dialogOpen({
+      title: '选择标志图片',
+      multiple: false,
+      directory: false,
+      filters: IMAGE_FILTERS
+    }).then(function (selected) {
+      var paths = asPathList(selected);
+      if (!paths.length) return;
+      return fsReadFile(paths[0]).then(function (bytes) {
+        var f = fileFromBytes(pathBase(paths[0]), bytes);
+        return loadImage(f).then(function (r) {
+          state.wm.logo = r.img;
+          document.getElementById('wmLogoBtn').textContent = '已选择：' + f.name;
+          wmChanged(10);
+        }, function () { toast('标志图片打不开'); });
+      });
+    }, function (err) {
+      toast('选择失败：' + errText(err));
+    });
+  }
+
+  function bindDesktopDrag() {
+    if (!DESKTOP || !window.__TAURI__.event) return;
+    var ev = window.__TAURI__.event;
+    function arm() {
+      document.body.classList.add('file-drag');
+      elDrop.classList.add('dragover');
+    }
+    function calm() {
+      document.body.classList.remove('file-drag');
+      elDrop.classList.remove('dragover');
+    }
+    ev.listen('tauri://drag-enter', arm);
+    ev.listen('tauri://drag-leave', calm);
+    ev.listen('deepic://paths-ready', function (event) {
+      calm();
+      var payload = event && event.payload;
+      var paths = Array.isArray(payload) ? payload : ((payload && payload.paths) || []);
+      paths = paths.filter(function (p) { return typeof p === 'string' && p; });
+      if (paths.length) importDroppedPaths(paths);
+    });
+  }
+
   /* ---------- 交互：导入 ---------- */
 
-  elDrop.addEventListener('click', function () { elFile.click(); });
-  document.getElementById('btnAdd').addEventListener('click', function () { elFile.click(); });
+  elDrop.addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('button')) return;
+    pickImageFiles();
+  });
+  document.getElementById('btnAdd').addEventListener('click', function () { pickImageFiles(); });
   elFile.addEventListener('change', function () {
     importPlainFiles(elFile.files);
     elFile.value = '';
@@ -1154,6 +1475,9 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
   document.addEventListener('drop', function (e) {
     e.preventDefault();
     elDrop.classList.remove('dragover');
+    document.body.classList.remove('file-drag');
+    /* 桌面包里拖放由系统事件接管，这里的 DataTransfer 是空的 */
+    if (DESKTOP) return;
     if (!e.dataTransfer) return;
     handleDrop(e.dataTransfer);
   });
@@ -1250,7 +1574,7 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
     found.forEach(function (f) {
       var g = null;
       for (var i = 0; i < groups.length; i++) {
-        if (groups[i].dir === f.dir) { g = groups[i]; break; }
+        if (sameDir(groups[i].dir, f.dir)) { g = groups[i]; break; }
       }
       if (!g) { g = { dir: f.dir, files: [] }; groups.push(g); }
       g.files.push(f.file);
@@ -1272,8 +1596,23 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
 
   /* 直接选文件夹导入：这样工具从一开始就知道图片在哪，覆盖原图就不用再选位置 */
   function openFolderAndImport() {
+    if (DESKTOP) {
+      dialogOpen({
+        title: '选择图片所在的文件夹',
+        directory: true,
+        recursive: true,
+        multiple: false
+      }).then(function (selected) {
+        var paths = asPathList(selected);
+        if (!paths.length) return;
+        return importFromPath(paths[0]);
+      }, function (err) {
+        toast('打开失败：' + errText(err));
+      });
+      return;
+    }
     if (typeof window.showDirectoryPicker !== 'function') {
-      toast('当前浏览器不支持，请用 Chrome 或 Edge 打开');
+      toast('这个窗口不能直接选择文件夹，请改用选择图片，或用下载导出');
       return;
     }
     window.showDirectoryPicker({ mode: 'readwrite', id: 'imgtool-out' }).then(function (h) {
@@ -1392,6 +1731,7 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
 
     /* 导出位置清空，连记住的文件夹一起忘掉 */
     state.dirHandle = null;
+    state.dirNeedsGrant = false;
     state.overwrite = false;
     elOverwrite.checked = false;
     state.exportMode = 'download';
@@ -1543,7 +1883,7 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
         txt = 'PNG 是无损格式，同等画质下比 WebP 大好几倍，一般不建议输出。';
       } else if (state.format === 'keep' && gifCount) {
         /* GIF 进 Canvas 只会画第一帧，必须说清楚，不能默默变静图 */
-        txt = '有 ' + gifCount + ' 张是 GIF：浏览器处理它会丢掉动画，只保留第一帧（会存成 ' +
+        txt = '有 ' + gifCount + ' 张是 GIF：处理时会丢掉动画，只保留第一帧（会存成 ' +
           extOf(outputMime({ file: { type: 'image/gif' } })).toUpperCase() + '）。' +
           '想要动图请另外处理。';
       } else if (state.format === 'keep' && otherCount) {
@@ -1680,7 +2020,7 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
   });
 
   document.getElementById('wmLogoBtn').addEventListener('click', function () {
-    document.getElementById('wmLogo').click();
+    pickWatermarkLogo();
   });
 
   document.getElementById('wmLogo').addEventListener('change', function () {
@@ -1801,7 +2141,7 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
   var elOverwrite = document.getElementById('overwrite');
   var elBtnPickFolder = document.getElementById('btnPickFolder');
 
-  var FS_SUPPORT = (typeof window.showDirectoryPicker === 'function');
+  var FS_SUPPORT = DESKTOP || (typeof window.showDirectoryPicker === 'function');
 
   function updateFolderUI() {
     if (state.dirHandle) {
@@ -1809,7 +2149,7 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
       elFolderName.classList.add('set');
       elBtnPickFolder.textContent = '换一个';
     } else {
-      elFolderName.textContent = FS_SUPPORT ? '还没有来源文件夹' : '当前浏览器不支持';
+      elFolderName.textContent = FS_SUPPORT ? '还没有来源文件夹' : '改用下载导出';
       elFolderName.classList.remove('set');
       elBtnPickFolder.textContent = '另存到…';
       elBtnPickFolder.disabled = !FS_SUPPORT;
@@ -1824,7 +2164,9 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
 
     var folderHint = document.getElementById('folderHint');
     if (state.dirHandle) {
-      folderHint.textContent = '点「导出」就直接写进这个文件夹，不会再弹窗问位置。勾上覆盖就替换原图。';
+      folderHint.textContent = state.dirNeedsGrant
+        ? '上次记住的是这个文件夹。导出前会再让你确认一次，确认后才能写入。'
+        : '点「导出」就直接写进这个文件夹，不会再弹窗问位置。勾上覆盖就替换原图。';
     } else {
       folderHint.textContent = '用「选择文件夹导入」或把文件夹拖进来，工具才知道图片在哪个文件夹，转完直接存回原处，覆盖原图也不用再选位置。';
     }
@@ -1855,13 +2197,38 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
     state.exportMode = b.dataset.mode;
     syncExportModeUI();
     if (state.exportMode === 'folder' && !FS_SUPPORT) {
-      toast('当前浏览器不支持直接存到文件夹，请用 Chrome 或 Edge');
+      toast('这个窗口不能直接写入文件夹，请改用下载导出');
     }
   });
 
-  function pickFolder() {
+  function pickFolder(defaultPath, quiet) {
+    if (DESKTOP) {
+      var opts = {
+        title: '选择要保存到的文件夹',
+        directory: true,
+        recursive: true,
+        multiple: false
+      };
+      if (defaultPath) opts.defaultPath = defaultPath;
+      return dialogOpen(opts).then(function (selected) {
+        var paths = asPathList(selected);
+        if (!paths.length) return null;
+        var h = folderFromPath(paths[0]);
+        state.dirHandle = h;
+        state.dirNeedsGrant = false;
+        state.exportMode = 'folder';
+        idbSet('dir', { kind: 'path', path: h.path, name: h.name });
+        updateFolderUI();
+        syncExportModeUI();
+        if (!quiet) toast('已记住文件夹：' + h.name);
+        return h;
+      }, function (err) {
+        toast('选择失败：' + errText(err));
+        return null;
+      });
+    }
     if (!FS_SUPPORT) {
-      toast('当前浏览器不支持直接存到文件夹，请用 Chrome 或 Edge 打开');
+      toast('这个窗口不能直接写入文件夹，请改用下载导出');
       return Promise.resolve(null);
     }
     return window.showDirectoryPicker({ mode: 'readwrite', id: 'imgtool-out' }).then(function (h) {
@@ -1921,12 +2288,58 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
       if (!d) return;
       var g = null;
       for (var i = 0; i < groups.length; i++) {
-        if (groups[i].dir === d) { g = groups[i]; break; }
+        if (sameDir(groups[i].dir, d)) { g = groups[i]; break; }
       }
       if (!g) { g = { dir: d, items: [], used: {} }; groups.push(g); }
       g.items.push(it);
     });
     return groups;
+  }
+
+  async function writePathGroup(g, onStep) {
+    var ok = 0, fail = 0, backup = 0, renamed = 0, scopeDenied = 0;
+    var backupDir = null;
+    var dirPath = g.dir.path;
+
+    for (var k = 0; k < g.items.length; k++) {
+      var it = g.items[k];
+      onStep();
+      try {
+        var inPlace = state.overwrite && canOverwriteInPlace(it);
+        if (state.overwrite && !inPlace) renamed++;
+        var name = inPlace ? overwriteName(it) : uniqueName(buildName(it), g.used);
+
+        if (inPlace && backupDir === null) {
+          try {
+            backupDir = pathJoin(dirPath, '原图备份');
+            await fsMkdir(backupDir);
+          } catch (e) { backupDir = false; }
+        }
+
+        if (inPlace && backupDir) {
+          var origName = leafName(it.name);
+          var backupFile = pathJoin(backupDir, origName);
+          var already = false;
+          try { already = await fsExists(backupFile); } catch (e) { already = false; }
+          if (!already) {
+            try {
+              var origBytes = await fsReadFile(pathJoin(dirPath, origName));
+              await fsWriteFile(backupFile, origBytes);
+              backup++;
+            } catch (e2) { /* 目录里没有这个原文件 */ }
+          }
+        }
+
+        var bytes = new Uint8Array(await it.blob.arrayBuffer());
+        await fsWriteFile(pathJoin(dirPath, name), bytes);
+        ok++;
+      } catch (e) {
+        if (/forbidden|not allowed|scope/i.test(errText(e))) scopeDenied++;
+        else fail++;
+      }
+    }
+
+    return { ok: ok, fail: fail, backup: backup, renamed: renamed, scopeDenied: scopeDenied };
   }
 
   async function writeToFolder(targets) {
@@ -1956,10 +2369,22 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
     var total = 0;
     ready.forEach(function (g) { total += g.items.length; });
 
-    var ok = 0, fail = 0, backup = 0, renamed = 0, done = 0;
+    var ok = 0, fail = 0, backup = 0, renamed = 0, done = 0, scopeDenied = 0;
 
     for (var gi = 0; gi < ready.length; gi++) {
       var g = ready[gi];
+      if (g.dir && g.dir.kind === 'path') {
+        var pr = await writePathGroup(g, function () {
+          done++;
+          elBtnDl.textContent = '正在保存 ' + done + '/' + total;
+        });
+        ok += pr.ok;
+        fail += pr.fail;
+        backup += pr.backup;
+        renamed += pr.renamed;
+        scopeDenied += pr.scopeDenied;
+        continue;
+      }
       var backupDir = null;   /* 懒创建：没有真正覆盖时不要留空目录 */
 
       for (var k = 0; k < g.items.length; k++) {
@@ -2018,8 +2443,12 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
     if (backup) msg += '，原图已备份 ' + backup + ' 张';
     if (renamed) msg += '\n' + renamed + ' 张改了输出格式，原图没动，已另存为新文件';
     if (denied) msg += '\n' + denied + ' 张因没有目录权限被跳过';
+    if (scopeDenied) {
+      state.dirNeedsGrant = true;
+      msg += '\n' + scopeDenied + ' 张因为文件夹权限失效没写成，请重新选择这个文件夹后再导出';
+    }
     if (fail) msg += '\n' + fail + ' 张写入失败';
-    toast(msg, (renamed || denied || fail) ? 6200 : 4200);
+    toast(msg, (renamed || denied || fail || scopeDenied) ? 6200 : 4200);
   }
 
   /* ---------- 下载 ---------- */
@@ -2176,7 +2605,7 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
         saveBlob(it.blob, uniqueName(it.outName || 'image.png', used));
       }, i * 320);
     });
-    toast('开始逐张下载，浏览器若询问请点「允许」');
+    toast('开始逐张保存。若系统弹出保存提示，请点允许');
   }
 
   async function onExport() {
@@ -2199,7 +2628,10 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
     }
 
     if (state.exportMode === 'folder') {
-      /* 所有目标目录的权限统一在 writeToFolder 里一次性发起 */
+      if (DESKTOP && state.dirNeedsGrant) {
+        var again = await pickFolder(state.dirHandle && state.dirHandle.path, true);
+        if (!again) return;
+      }
       if (!state.dirHandle && !targets.some(function (it) { return it.srcDir; })) {
         var h = await pickFolder();
         if (!h) return;
@@ -2240,9 +2672,20 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
   updateStats();
   updateFormatHint();
 
-  /* 恢复上次记住的文件夹 */
+  bindDesktopDrag();
+
+  /* 恢复上次记住的文件夹。系统只在本次选择或拖放时授权，重启后要再确认一次。 */
   idbGet('dir').then(function (h) {
-    if (h && h.kind === 'directory') {
+    if (!h) return;
+    if (h.kind === 'path' && h.path) {
+      state.dirHandle = { kind: 'path', path: h.path, name: h.name || pathBase(h.path) };
+      state.dirNeedsGrant = true;
+      state.exportMode = 'folder';
+      updateFolderUI();
+      syncExportModeUI();
+      return;
+    }
+    if (!DESKTOP && h.kind === 'directory') {
       state.dirHandle = h;
       state.exportMode = 'folder';
       updateFolderUI();

@@ -1,9 +1,16 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
+  "description": "Main window. The fs plugin has no pre-opened folders; dialog picks and file drops grant only those paths.",
   "windows": ["main"],
   "permissions": [
-    "core:default"
+    "core:default",
+    "dialog:allow-open",
+    "fs:allow-read-file",
+    "fs:allow-read-dir",
+    "fs:allow-stat",
+    "fs:allow-exists",
+    "fs:allow-mkdir",
+    "fs:allow-write-file"
   ]
 }
