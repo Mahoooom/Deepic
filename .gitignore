@@ -27,3 +27,7 @@ dist-ssr
 src-tauri/target
 src-tauri/gen/schemas/*.json
 !src-tauri/gen/schemas/.gitkeep
+
+# Updater signing keys. Never commit the private key.
+*.key
+*.key.pub
