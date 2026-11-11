@@ -1445,6 +1445,10 @@ input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line
       paths = paths.filter(function (p) { return typeof p === 'string' && p; });
       if (paths.length) importDroppedPaths(paths);
     });
+    ev.listen('deepic://update-status', function (event) {
+      var msg = event && event.payload;
+      if (typeof msg === 'string' && msg) toast(msg, 120000);
+    });
   }
 
   /* ---------- 交互：导入 ---------- */
