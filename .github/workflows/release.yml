@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: Build Windows app (unsigned) and publish
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: Deepic v__VERSION__
+          releaseBody: |
+            图片旋转压缩工具 Windows 安装包（未代码签名）。
+
+            下载 Assets 中的 `.exe` / `.msi` 安装即可。若 Windows 提示未知发布者，选择“仍要运行”即可。
+          releaseDraft: false
+          prerelease: false
+          includeDebug: false
+          args: --bundles nsis,msi

@@ -1,0 +1,2255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>图片旋转压缩</title>
+<style>
+:root{
+  --bg:#F8F6F3;
+  --card:#FFFFFF;
+  --line:#E9E3DC;
+  --text:#2B2724;
+  --text-2:#7A716A;
+  --brand:#C2410C;
+  --brand-dark:#9A330A;
+  --brand-soft:#FDF1EA;
+  --ok:#15803D;
+  --danger:#B91C1C;
+  --radius:14px;
+}
+*{box-sizing:border-box}
+[hidden]{display:none !important}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--text);
+  font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;font-size:13.5px;cursor:pointer;border-radius:9px;border:1px solid var(--line);background:#fff;color:var(--text);padding:8px 12px;transition:.15s;line-height:1.2}
+button:hover{border-color:#D8CFC5;background:#FCFAF8}
+button:active{transform:translateY(.5px)}
+button:disabled{opacity:.45;cursor:not-allowed}
+input[type=text],input[type=number],select{font-family:inherit;font-size:14px;color:var(--text);border:1px solid var(--line);border-radius:9px;padding:10px 11px;background:#fff;outline:none}
+input[type=text]:focus,input[type=number]:focus,select:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(194,65,12,.1)}
+
+.wrap{max-width:1360px;margin:0 auto;padding:24px 22px 60px}
+.head{margin-bottom:18px}
+h1{font-size:21px;margin:0 0 6px;font-weight:650;letter-spacing:.3px}
+.sub{margin:0;color:var(--text-2);font-size:13px}
+
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 344px;gap:20px;align-items:start}
+.main{min-width:0}
+
+/* 拖拽区 */
+.drop{
+  border:1.5px dashed #DCD3C9;border-radius:var(--radius);background:#FFFDFB;
+  padding:50px 20px;text-align:center;cursor:pointer;transition:.15s;
+}
+.drop:hover{border-color:var(--brand);background:var(--brand-soft)}
+.drop.dragover{border-color:var(--brand);background:var(--brand-soft);box-shadow:0 0 0 4px rgba(194,65,12,.08)}
+.drop-icon{font-size:30px;line-height:1;color:var(--brand);margin-bottom:12px;font-weight:300}
+.drop-title{font-size:15px;font-weight:600;margin-bottom:6px}
+.drop-hint{color:var(--text-2);font-size:12.5px;max-width:440px;margin:0 auto}
+.drop-btn{margin-top:16px;padding:10px 18px;border-radius:10px;border:1px solid #EAD9CD;background:#fff;color:var(--brand-dark);font-weight:600;font-size:13.5px}
+.drop-btn:hover{background:var(--brand-soft);border-color:#E5C6B2}
+.drop-note{margin-top:10px;font-size:11.5px;color:var(--text-2)}
+
+/* 工具条 */
+.toolbar{
+  display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-bottom:13px;
+  padding:8px 10px;background:#fff;border:1px solid var(--line);border-radius:12px;
+}
+.toolbar .label{color:var(--text-2);font-size:12.5px;margin-left:2px}
+.toolbar .sep{width:1px;height:18px;background:var(--line);margin:0 2px}
+.toolbar .spacer{flex:1}
+.pick-info{font-size:12.5px;color:var(--text-2);font-variant-numeric:tabular-nums}
+.pick-info b{color:var(--brand-dark)}
+.btn-add{border-color:#EAD9CD;background:var(--brand-soft);color:var(--brand-dark);font-weight:600}
+.btn-add:hover{background:#FBE6DA;border-color:#E5C6B2}
+.btn-clear{color:var(--text-2);border-color:transparent;background:transparent}
+.btn-clear:hover{color:var(--danger);background:#FEF2F2;border-color:#FEE2E2}
+.mini{padding:7px 11px;font-size:13px}
+
+/* 卡片网格 */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(238px,1fr));gap:14px}
+.card{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:11px;display:flex;flex-direction:column;gap:8px;position:relative;transition:.15s;
+}
+.card.picked{border-color:#E9B79C;box-shadow:0 0 0 2.5px rgba(194,65,12,.09)}
+.pick{
+  position:absolute;top:17px;left:17px;z-index:2;
+  width:27px;height:27px;border-radius:8px;background:rgba(255,255,255,.94);
+  border:1px solid rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center;
+  box-shadow:0 1px 4px rgba(0,0,0,.14);
+}
+.pick input{width:18px;height:18px;accent-color:var(--brand);cursor:pointer;margin:0}
+.thumb{
+  height:152px;display:flex;align-items:center;justify-content:center;
+  background:#FAF8F5;border-radius:10px;overflow:hidden;
+}
+.thumb canvas{
+  max-width:100%;max-height:152px;display:block;
+  background-image:linear-gradient(45deg,#F0ECE7 25%,transparent 25%,transparent 75%,#F0ECE7 75%),
+                   linear-gradient(45deg,#F0ECE7 25%,transparent 25%,transparent 75%,#F0ECE7 75%);
+  background-size:12px 12px;background-position:0 0,6px 6px;
+}
+.name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{font-size:12px;color:var(--text-2);font-variant-numeric:tabular-nums}
+.size{font-size:12px;color:var(--ok);font-variant-numeric:tabular-nums}
+.size.calc{color:var(--text-2)}
+.ops{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.ops button{padding:8px 5px;font-size:13.5px}
+.ops2{display:flex;align-items:center;gap:6px;margin-top:1px}
+.angle{display:flex;align-items:center;gap:5px;font-size:13px;color:var(--text-2);flex:0 0 auto}
+.angle input{width:58px;padding:7px 5px;font-size:13.5px;text-align:center;border:1px solid var(--line);border-radius:8px}
+.angle input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(194,65,12,.1)}
+.link{border-color:transparent;background:transparent;color:var(--text-2);padding:8px 9px;font-size:13.5px}
+.link:hover{background:#F5F1EC;border-color:transparent;color:var(--text)}
+.link.danger:hover{background:#FEF2F2;color:var(--danger)}
+.spacer-flex{flex:1}
+
+/* 面板 */
+.panel{
+  background:var(--card);border:1px solid var(--line);border-radius:16px;
+  position:sticky;top:18px;max-height:calc(100vh - 36px);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.panel-scroll{padding:16px 16px 4px;overflow-y:auto;flex:1;min-height:0}
+.panel-scroll::-webkit-scrollbar{width:6px}
+.panel-scroll::-webkit-scrollbar-thumb{background:#E0D8CF;border-radius:3px}
+.panel-foot{border-top:1px solid var(--line);padding:12px 16px 14px;background:#fff}
+
+details.group{border-bottom:1px solid var(--line);padding:9px 0}
+details.group:last-of-type{border-bottom:none}
+details.group summary{
+  list-style:none;cursor:pointer;display:flex;align-items:center;gap:7px;
+  font-size:13px;font-weight:650;padding:3px 0;user-select:none;
+}
+details.group summary::-webkit-details-marker{display:none}
+details.group summary::after{content:'▾';color:var(--text-2);margin-left:auto;font-size:11px;transition:.2s}
+details.group[open] summary::after{transform:rotate(180deg)}
+.badge{font-size:10.5px;font-weight:600;color:var(--brand-dark);background:var(--brand-soft);border-radius:5px;padding:1px 6px}
+.group-body{padding-top:10px}
+
+.field{margin-bottom:12px}
+.field:last-child{margin-bottom:2px}
+.field-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.field label{font-size:13px;color:var(--text-2);display:block;margin-bottom:7px}
+.field-top label{margin:0}
+.field-top b{font-size:13px;color:var(--brand-dark);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:5px;border-radius:5px;background:#EDE7E0;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--brand);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.18);cursor:pointer}
+input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--brand);border:2px solid #fff;cursor:pointer}
+select{width:100%}
+.hint{font-size:12px;color:var(--text-2);margin:-4px 0 12px;line-height:1.5}
+.check{display:flex !important;align-items:center;gap:8px;font-size:13px !important;color:var(--text) !important;margin:0 0 9px !important;cursor:pointer;user-select:none}
+.check input{width:18px;height:18px;accent-color:var(--brand);cursor:pointer;margin:0;flex:0 0 auto}
+.check span{line-height:1.35}
+
+.seg{display:flex;background:#F4F0EB;border-radius:10px;padding:3px;gap:3px;margin-bottom:11px}
+.seg button{flex:1;border:none;background:transparent;padding:9px 6px;font-size:13.5px;color:#4A433E;border-radius:8px}
+.seg button.on{background:#fff;color:var(--brand-dark);font-weight:600;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.seg button:hover{background:transparent}
+.seg button:disabled{opacity:.4;cursor:not-allowed}
+
+.grid9{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;width:120px;margin-bottom:11px}
+.grid9 button{height:35px;padding:0;border-radius:7px;background:#FAF7F3;border:1px solid var(--line)}
+.grid9 button.on{background:var(--brand);border-color:var(--brand)}
+.grid9 button:hover{border-color:#D8CFC5}
+.grid9 button.on:hover{background:var(--brand-dark);border-color:var(--brand-dark)}
+
+.presets{display:flex;gap:6px;margin:8px 0 2px}
+.presets button{flex:1;padding:7px 4px;font-size:12.5px;color:var(--text-2);border-radius:8px}
+.presets button.on{background:var(--brand-soft);border-color:#E9B79C;color:var(--brand-dark);font-weight:600}
+
+.row2{display:flex;gap:8px;align-items:flex-end}
+.row2>div{flex:1;min-width:0}
+input[type=color]{width:100%;height:32px;padding:2px;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer}
+
+.wm-text{width:100%;margin-bottom:10px}
+.wm-file-btn{width:100%;margin-bottom:10px;padding:10px}
+.folder-line{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+.folder-name{font-size:12.5px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0}
+.folder-name.set{color:var(--brand-dark);font-weight:600}
+
+.primary{
+  width:100%;padding:14px;border-radius:12px;border:none;background:var(--brand);color:#fff;
+  font-size:15.5px;font-weight:600;
+}
+.primary:hover{background:var(--brand-dark)}
+.primary:disabled{background:#E3DCD5;color:#A99F96;cursor:not-allowed;transform:none}
+.stats{margin-top:10px;font-size:12px;color:var(--text-2);text-align:center;line-height:1.55;font-variant-numeric:tabular-nums;white-space:pre-line}
+.dl-single{display:block;width:100%;margin-top:7px;font-size:12.5px;color:var(--text-2);border-color:transparent;background:transparent;padding:8px}
+.dl-single:hover{color:var(--text);background:#F7F3EE;border-color:transparent}
+
+.toast{
+  position:fixed;left:50%;bottom:34px;transform:translate(-50%,14px);
+  background:rgba(43,39,36,.94);color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;
+  opacity:0;pointer-events:none;transition:.22s;z-index:99;max-width:82vw;text-align:center;line-height:1.5;
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+@media (max-width:900px){
+  .wrap{padding:16px 13px 50px}
+  .layout{grid-template-columns:1fr}
+  .panel{position:static;max-height:none;order:2}
+  .panel-scroll{max-height:none;overflow:visible}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(152px,1fr));gap:10px}
+  .thumb{height:112px}
+  .thumb canvas{max-height:112px}
+  .drop{padding:34px 16px}
+  h1{font-size:18px}
+  .ops button{font-size:11.5px;padding:6px 2px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <h1>图片旋转压缩</h1>
+    <p class="sub">拖进来 → 转一下 → 导出。图片全程只在你自己的电脑上处理，不会上传到任何地方。</p>
+  </header>
+
+  <div class="layout">
+    <main class="main">
+      <div id="drop" class="drop">
+        <div class="drop-icon">＋</div>
+        <div class="drop-title">把图片或整个文件夹拖到这里</div>
+        <div class="drop-hint">点这里选择图片 · 支持 JPG / PNG / WebP · 可多选 · 也可以按 Ctrl+V 粘贴截图</div>
+        <button id="btnOpenFolder" class="drop-btn">选择文件夹导入</button>
+        <div class="drop-note">用这种方式导入，工具才知道图片在哪个文件夹，转完能直接存回原处</div>
+        <input id="file" type="file" accept="image/*" multiple hidden>
+      </div>
+
+      <div id="toolbar" class="toolbar" hidden>
+        <button id="btnAdd" class="btn-add">＋ 添加</button>
+        <button id="btnOpenFolder2" class="mini">＋ 文件夹</button>
+        <span class="sep"></span>
+        <span class="pick-info">已选 <b id="pickCount">0</b>/<span id="totalCount">0</span></span>
+        <button id="btnPickAll" class="mini">全选</button>
+        <button id="btnPickNone" class="mini">取消</button>
+        <span class="sep"></span>
+        <span class="label">选中项：</span>
+        <button data-all="ccw" class="mini">左转 90°</button>
+        <button data-all="cw" class="mini">右转 90°</button>
+        <button data-all="half" class="mini">转 180°</button>
+        <button data-all="fh" class="mini">左右镜像</button>
+        <button data-all="fv" class="mini">上下镜像</button>
+        <button data-all="reset" class="mini">还原</button>
+        <span class="spacer"></span>
+        <button id="btnClear" class="btn-clear">清空</button>
+      </div>
+
+      <div id="grid" class="grid"></div>
+    </main>
+
+    <aside class="panel">
+      <div class="panel-scroll">
+        <details class="group" open>
+          <summary>导出位置</summary>
+          <div class="group-body">
+            <div class="seg" id="exportMode">
+              <button data-mode="folder">存到原文件夹</button>
+              <button data-mode="download" class="on">下载</button>
+            </div>
+
+            <div id="folderBox">
+              <div class="folder-line">
+                <span class="folder-name" id="folderName">还没有来源文件夹</span>
+                <button id="btnPickFolder" class="mini">另存到…</button>
+              </div>
+              <label class="check"><input type="checkbox" id="overwrite"><span>覆盖同名文件（替换原图）</span></label>
+              <p class="hint" id="folderHint">用「选择文件夹导入」或把文件夹拖进来，工具才知道图片在哪个文件夹，转完直接存回原处，覆盖原图也不用再选位置。</p>
+            </div>
+          </div>
+        </details>
+
+        <details class="group" open>
+          <summary>压缩与格式</summary>
+          <div class="group-body">
+            <div class="seg" id="sizeMode">
+              <button data-sm="quality" class="on">按画质</button>
+              <button data-sm="target">按体积</button>
+            </div>
+
+            <div id="qualityBox">
+              <div class="field-top">
+                <label for="quality">压缩质量</label>
+                <b id="qVal">92</b>
+              </div>
+              <input id="quality" type="range" min="30" max="100" step="1" value="92">
+              <div class="presets" id="qPresets">
+                <button data-q="70">省空间</button>
+                <button data-q="82">平衡</button>
+                <button data-q="95">高画质</button>
+              </div>
+              <p class="hint">数值越高越清晰、文件越大。只转方向、不想损失画质，拖到 100。</p>
+            </div>
+
+            <div id="targetBox" hidden>
+              <label for="targetKB" style="font-size:13px;color:var(--text-2);display:block;margin-bottom:7px">每张控制在（KB）</label>
+              <input id="targetKB" type="number" value="500" min="20" max="20000" step="10" style="width:100%">
+              <p class="hint">工具自动找最合适的质量：在把体积压进目标范围内的前提下，尽量保住画质，不用手动降像素。</p>
+            </div>
+
+            <div class="field">
+              <label for="maxEdge">最大边长</label>
+              <select id="maxEdge">
+                <option value="0">不缩放（保持原尺寸）</option>
+                <option value="3000">3000 像素</option>
+                <option value="1920">1920 像素（高清大屏）</option>
+                <option value="1280">1280 像素（网页 / 微信）</option>
+                <option value="800">800 像素（小图省空间）</option>
+                <option value="640">640 像素（缩略图）</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="format">输出格式</label>
+              <select id="format">
+                <option value="keep">保持原格式（推荐）</option>
+                <option value="image/jpeg">JPG（体积最小）</option>
+                <option value="image/webp">WebP（更小，画质好）</option>
+                <option value="image/png">PNG（无损，体积大）</option>
+              </select>
+            </div>
+            <p class="hint" id="formatHint" hidden></p>
+
+            <div class="field">
+              <label class="check"><input type="checkbox" id="crop"><span>裁掉旋转产生的空白边</span></label>
+            </div>
+            <p class="hint">转过非 90° 的角度时画面四角会空出来。勾选后自动裁成整齐矩形，会切掉一点边缘。</p>
+          </div>
+        </details>
+
+        <details class="group" id="wmGroup">
+          <summary>水印 <span class="badge" id="wmBadge" hidden>已开启</span></summary>
+          <div class="group-body">
+            <label class="check"><input type="checkbox" id="wmEnable"><span>给导出的图片加水印</span></label>
+
+            <div id="wmBox" hidden>
+              <div class="seg" id="wmType">
+                <button data-wmtype="text" class="on">文字水印</button>
+                <button data-wmtype="image">图片标志</button>
+              </div>
+
+              <div id="wmTextPart">
+                <input id="wmText" class="wm-text" type="text" placeholder="水印文字，例如：丁亮亮 138xxxx0000" maxlength="60">
+                <div class="field-top"><label>字号</label><b id="wmSizeVal">4%</b></div>
+                <input id="wmSize" type="range" min="2" max="15" value="4">
+                <div class="row2" style="margin:9px 0 4px">
+                  <div>
+                    <label style="font-size:11.5px;color:var(--text-2);display:block;margin-bottom:4px">颜色</label>
+                    <input type="color" id="wmColor" value="#ffffff">
+                  </div>
+                  <div>
+                    <label style="font-size:11.5px;color:var(--text-2);display:block;margin-bottom:4px">透明度 <b id="wmOpacityVal" style="color:var(--brand-dark)">75%</b></label>
+                    <input id="wmOpacity" type="range" min="10" max="100" value="75">
+                  </div>
+                </div>
+                <label class="check" style="margin-top:8px"><input type="checkbox" id="wmTile"><span>平铺整张图（防盗用）</span></label>
+                <div id="wmAngleRow" style="margin-top:6px">
+                  <label style="font-size:11.5px;color:var(--text-2)">平铺角度</label>
+                  <input id="wmAngle" type="number" value="-30" min="-90" max="90" step="5" style="width:74px">
+                </div>
+              </div>
+
+              <div id="wmImagePart" hidden>
+                <button id="wmLogoBtn" class="wm-file-btn">选择标志图片（PNG 透明底最佳）</button>
+                <input type="file" id="wmLogo" accept="image/*" hidden>
+                <div class="field-top"><label>大小</label><b id="wmLogoVal">18%</b></div>
+                <input id="wmLogoScale" type="range" min="5" max="60" value="18">
+              </div>
+
+              <label style="font-size:11.5px;color:var(--text-2);display:block;margin:10px 0 6px">位置</label>
+              <div class="grid9" id="wmPos">
+                <button data-pos="tl"></button><button data-pos="tc"></button><button data-pos="tr"></button>
+                <button data-pos="ml"></button><button data-pos="mc"></button><button data-pos="mr"></button>
+                <button data-pos="bl"></button><button data-pos="bc"></button><button data-pos="br" class="on"></button>
+              </div>
+              <p class="hint" style="margin-bottom:2px">深色图片用白字、浅色图片用黑字，水印才看得清。</p>
+            </div>
+          </div>
+        </details>
+
+      </div>
+
+      <div class="panel-foot">
+        <button id="btnDownload" class="primary" disabled>导出</button>
+        <button id="btnDownloadEach" class="dl-single" disabled hidden>逐张下载</button>
+        <div id="stats" class="stats"></div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  var MAX_COUNT = 200;          /* 张数硬上限，只防极端小图刷屏 */
+  var MAX_PIXELS = 200000000;   /* 累计像素预算：约 2 亿像素，超出就不再导入 */
+  var THUMB = 320;
+  var IMG_EXT_RE = /\.(jpe?g|png|webp|gif|bmp)$/i;
+
+  var state = {
+    items: [],
+    quality: 0.92,
+    qualityTouched: false,
+    maxEdge: 0,
+    format: 'keep',
+    crop: false,
+    sizeMode: 'quality',
+    targetBytes: 500 * 1024,
+    token: 0,
+    busy: false,
+    encodeTotal: 0,
+    encodeLeft: 0,
+    encodeHint: '',
+    wmEnabled: false,
+    wm: {
+      type: 'text',
+      text: '',
+      sizePct: 4,
+      color: '#ffffff',
+      opacity: 0.75,
+      pos: 'br',
+      tile: false,
+      angle: -30,
+      logo: null,
+      logoScale: 18
+    },
+    wmKey: 0,
+    exportMode: 'download',
+    dirHandle: null,
+    overwrite: false,
+    writing: false
+  };
+  var uid = 0;
+
+  var elDrop = document.getElementById('drop');
+  var elFile = document.getElementById('file');
+  var elGrid = document.getElementById('grid');
+  var elToolbar = document.getElementById('toolbar');
+  var elQuality = document.getElementById('quality');
+  var elQVal = document.getElementById('qVal');
+  var elMaxEdge = document.getElementById('maxEdge');
+  var elFormat = document.getElementById('format');
+  var elCrop = document.getElementById('crop');
+  var elFormatHint = document.getElementById('formatHint');
+  var elTargetKB = document.getElementById('targetKB');
+  var elQualityBox = document.getElementById('qualityBox');
+  var elTargetBox = document.getElementById('targetBox');
+  var elBtnDl = document.getElementById('btnDownload');
+  var elBtnDlEach = document.getElementById('btnDownloadEach');
+  var elStats = document.getElementById('stats');
+  var elToast = document.getElementById('toast');
+  var elPickCount = document.getElementById('pickCount');
+  var elTotalCount = document.getElementById('totalCount');
+
+  /* ---------- 基础工具 ---------- */
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function fmtSize(b) {
+    if (b == null) return '—';
+    if (b < 1024) return b + ' B';
+    if (b < 1024 * 1024) return (b / 1024).toFixed(0) + ' KB';
+    return (b / 1024 / 1024).toFixed(2) + ' MB';
+  }
+
+  function normAngle(a) {
+    a = a % 360;
+    if (a > 180) a -= 360;
+    /* 边界用 < 而不是 <=：让 -180 保持 -180，输入框显示才和内部状态一致 */
+    if (a < -180) a += 360;
+    return Math.round(a * 100) / 100;
+  }
+
+  var toastTimer = null;
+  function toast(msg, ms) {
+    elToast.textContent = msg;
+    elToast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { elToast.classList.remove('show'); }, ms || 2600);
+  }
+
+  function stripExt(n) { return n.replace(/\.[^.]+$/, ''); }
+
+  /* ---------- 尺寸与绘制 ---------- */
+
+  function cropFactor(w, h, deg) {
+    var d = Math.abs(deg) % 90;
+    if (d < 0.01 || d > 89.99) return 1;
+    var a = w / 2;
+    var b = h / 2;
+    var rad;
+    if (d > 45) {
+      var t = a; a = b; b = t;
+      rad = (90 - d) * Math.PI / 180;
+    } else {
+      rad = d * Math.PI / 180;
+    }
+    var c = Math.cos(rad);
+    var s = Math.sin(rad);
+    var k = Math.min(a / (a * c + b * s), b / (a * s + b * c), 1);
+    return (isFinite(k) && k > 0) ? k : 1;
+  }
+
+  function isCropping(deg) {
+    var d = Math.abs(deg) % 90;
+    return d > 0.01 && d < 89.99;
+  }
+
+  /* 不受「最大边长」限制时的输出尺寸。paint() 要用它反推绘制缩放，
+     两者必须来自同一套计算，否则会出现二次缩放（裁边时就会露白边）。 */
+  function baseOutSize(it) {
+    var rad = it.rot * Math.PI / 180;
+    var c = Math.abs(Math.cos(rad));
+    var s = Math.abs(Math.sin(rad));
+    var boxW = it.w * c + it.h * s;
+    var boxH = it.w * s + it.h * c;
+
+    if (state.crop && isCropping(it.rot)) {
+      var cf = cropFactor(it.w, it.h, it.rot);
+      var longS = Math.max(it.w, it.h) * cf;
+      var shortS = Math.min(it.w, it.h) * cf;
+      /* 恰好 45° 时包围盒是正方形，浮点误差会让朝向随机翻转；
+         这时改为跟随源图朝向，保证结果稳定 */
+      if (Math.abs(boxW - boxH) < 1e-6) {
+        if (it.w >= it.h) { boxW = longS; boxH = shortS; }
+        else { boxW = shortS; boxH = longS; }
+      } else if (boxW > boxH) {
+        boxW = longS; boxH = shortS;
+      } else {
+        boxW = shortS; boxH = longS;
+      }
+    }
+
+    return { w: boxW, h: boxH };
+  }
+
+  function outSize(it) {
+    var base = baseOutSize(it);
+    var w = Math.round(base.w);
+    var h = Math.round(base.h);
+    var lim = state.maxEdge;
+    if (lim > 0) {
+      var m = Math.max(w, h);
+      if (m > lim) {
+        var k = lim / m;
+        w = Math.max(1, Math.round(w * k));
+        h = Math.max(1, Math.round(h * k));
+      }
+    }
+    return { w: Math.max(1, w), h: Math.max(1, h) };
+  }
+
+  function paint(canvas, it, w, h, bg) {
+    canvas.width = w;
+    canvas.height = h;
+    var ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, w, h);
+    if (bg) {
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, w, h);
+    }
+    ctx.save();
+    ctx.translate(w / 2, h / 2);
+    ctx.rotate(it.rot * Math.PI / 180);
+    ctx.scale(it.flipH ? -1 : 1, it.flipV ? -1 : 1);
+    /* 缩放必须由「不限幅的基准尺寸」推出来。
+       裁边时画布已按 cropFactor 缩小，若再拿未裁剪的包围盒去除，
+       图片会被缩小两次，四角露白边。 */
+    var base = baseOutSize(it);
+    var k = w / (base.w || 1);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(it.img, -it.w * k / 2, -it.h * k / 2, it.w * k, it.h * k);
+    ctx.restore();
+    drawWatermark(ctx, w, h);
+  }
+
+  function drawWatermark(ctx, W, H) {
+    if (!state.wmEnabled) return;
+    var wm = state.wm;
+    var short = Math.min(W, H);
+    if (short < 8) return;
+
+    ctx.save();
+    ctx.globalAlpha = wm.opacity;
+
+    if (wm.type === 'text') {
+      var txt = (wm.text || '').trim();
+      if (!txt) { ctx.restore(); return; }
+      var fs = Math.max(6, Math.round(short * wm.sizePct / 100));
+      ctx.font = '700 ' + fs + 'px "Microsoft YaHei","PingFang SC",Arial,sans-serif';
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      ctx.shadowColor = 'rgba(0,0,0,0.42)';
+      ctx.shadowBlur = Math.max(2, Math.round(fs * 0.12));
+      ctx.shadowOffsetY = Math.max(1, Math.round(fs * 0.03));
+      ctx.fillStyle = wm.color;
+
+      if (wm.tile) {
+        var diag = Math.sqrt(W * W + H * H);
+        var gapX = fs * (txt.length * 1.15 + 4);
+        var gapY = fs * 3.2;
+        ctx.translate(W / 2, H / 2);
+        ctx.rotate(wm.angle * Math.PI / 180);
+        var total = 0;
+        for (var y = -diag / 2; y < diag / 2; y += gapY) {
+          if (total > 400) break;
+          for (var x = -diag / 2; x < diag / 2; x += gapX) {
+            if (total++ > 400) break;
+            ctx.fillText(txt, x, y);
+          }
+        }
+      } else {
+        var pad = Math.round(short * 0.03);
+        var tw = ctx.measureText(txt).width;
+        var col = wm.pos.charAt(1);
+        var row = wm.pos.charAt(0);
+        var px = col === 'l' ? pad : (col === 'c' ? (W - tw) / 2 : W - pad - tw);
+        var py = row === 't' ? pad + fs / 2 : (row === 'm' ? H / 2 : H - pad - fs / 2);
+        ctx.fillText(txt, px, py);
+      }
+    } else if (wm.type === 'image' && wm.logo) {
+      var lw = short * wm.logoScale / 100;
+      var lh = lw * (wm.logo.naturalHeight / wm.logo.naturalWidth);
+      var padI = Math.round(short * 0.03);
+      var colI = wm.pos.charAt(1);
+      var rowI = wm.pos.charAt(0);
+      var lx = colI === 'l' ? padI : (colI === 'c' ? (W - lw) / 2 : W - padI - lw);
+      var ly = rowI === 't' ? padI : (rowI === 'm' ? (H - lh) / 2 : H - padI - lh);
+      ctx.shadowColor = 'rgba(0,0,0,0.28)';
+      ctx.shadowBlur = Math.max(2, Math.round(lw * 0.03));
+      ctx.drawImage(wm.logo, lx, ly, lw, lh);
+    }
+
+    ctx.restore();
+  }
+
+  function paintThumb(canvas, it) {
+    var o = outSize(it);
+    var k = Math.min(1, THUMB / Math.max(o.w, o.h));
+    paint(canvas, it, Math.max(1, Math.round(o.w * k)), Math.max(1, Math.round(o.h * k)), null);
+  }
+
+  /* ---------- 输出格式与命名 ---------- */
+
+  function outputMime(it) {
+    if (state.format !== 'keep') return state.format;
+    var t = (it.file.type || '').toLowerCase();
+    if (t === 'image/png' || t === 'image/jpeg' || t === 'image/webp') return t;
+    return 'image/png';
+  }
+
+  function extOf(mime) {
+    if (mime === 'image/jpeg') return 'jpg';
+    if (mime === 'image/webp') return 'webp';
+    return 'png';
+  }
+
+  function buildName(it) {
+    var base = stripExt(it.name);
+    var suffix = '';
+    var r = Math.round(it.rot);
+    if (r) suffix += '_r' + (((r % 360) + 360) % 360);
+    if (it.flipH) suffix += '_mh';
+    if (it.flipV) suffix += '_mv';
+    if (!suffix) suffix = '_处理后';
+    return base + suffix + '.' + extOf(it.mime || outputMime(it));
+  }
+
+  /* 原文件扩展名（不含点、小写）；取不到时返回空串 */
+  function origExt(it) {
+    var m = /\.[^.]+$/.exec(it.name || '');
+    return m ? m[0].slice(1).toLowerCase() : '';
+  }
+
+  function targetExt(it) {
+    return extOf(it.mime || outputMime(it));
+  }
+
+  /* 扩展名归一：.jpeg/.jpe 与 .jpg 是同一种格式，不能因此判定成「改了格式」 */
+  function normExt(e) {
+    e = (e || '').toLowerCase();
+    if (e === 'jpeg' || e === 'jpe') return 'jpg';
+    if (e === 'tif') return 'tiff';
+    return e;
+  }
+
+  /* 只有扩展名和原文件一致，才谈得上「原地覆盖」；改了格式一律另存新文件 */
+  function canOverwriteInPlace(it) {
+    var oe = origExt(it);
+    if (!oe) return true;
+    return normExt(oe) === normExt(targetExt(it));
+  }
+
+  /* 覆盖就是写同名文件：直接沿用原文件名，不按 MIME 推导，也不改大小写 */
+  function overwriteName(it) {
+    return it.name;
+  }
+
+  /* ---------- 编码 ---------- */
+
+  function cacheKey(it) {
+    return [it.rot, it.flipH, it.flipV, state.quality, state.maxEdge, state.crop,
+      state.wmEnabled ? state.wmKey : 0, outputMime(it),
+      state.sizeMode, state.sizeMode === 'target' ? state.targetBytes : 0].join('|');
+  }
+
+  /* 水印是否真的会画到图上：开关开着但内容为空时不算改动 */
+  function watermarkActive() {
+    if (!state.wmEnabled) return false;
+    if (state.wm.type === 'text') return !!(state.wm.text && state.wm.text.trim());
+    return !!state.wm.logo;
+  }
+
+  /* 没做任何改变时直接沿用原文件，绝对无损、体积不变 */
+  function needsReencode(it, mime, o) {
+    if (it.rot !== 0 || it.flipH || it.flipV) return true;
+    if (watermarkActive()) return true;
+    if (o.w !== it.w || o.h !== it.h) return true;
+    var orig = (it.file.type || '').toLowerCase();
+    if (orig && mime !== orig) return true;
+    /* 用户动过质量滑块：按他设定的质量重压一遍。PNG 没有质量参数，不因此触发 */
+    if (state.qualityTouched && state.quality < 1 && mime !== 'image/png') return true;
+    /* 按体积压缩对 PNG 无效（无损格式没有质量参数），别为了它强行重编码，反而会变大 */
+    if (state.sizeMode === 'target' && mime !== 'image/png' && it.file.size > state.targetBytes) return true;
+    return false;
+  }
+
+  function finish(it, blob, mime, o, q) {
+    it.blob = blob;
+    it.mime = blob.type || mime;
+    it.outW = o.w;
+    it.outH = o.h;
+    it.outName = buildName(it);
+    it.key = cacheKey(it);
+    it.usedQuality = (q == null ? null : q);
+    it.over = (state.sizeMode === 'target' && mime !== 'image/png' && blob.size > state.targetBytes);
+  }
+
+  function blobAt(canvas, mime, q) {
+    return new Promise(function (res) { canvas.toBlob(res, mime, q); });
+  }
+
+  /* 按目标体积二分查找能达标的最高质量，避免靠降像素换体积 */
+  function encodeToTarget(it, canvas, mime, o) {
+    var target = state.targetBytes;
+    var lo = 0.3, hi = 0.99;
+    var best = null, bestQ = 0;
+
+    function step(i) {
+      if (i >= 4) return Promise.resolve();
+      var mid = (lo + hi) / 2;
+      return blobAt(canvas, mime, mid).then(function (b) {
+        if (!b) return Promise.reject(new Error('encode failed'));
+        if (b.size <= target) { best = b; bestQ = mid; lo = mid; }
+        else { hi = mid; }
+        return step(i + 1);
+      });
+    }
+
+    return blobAt(canvas, mime, 0.85).then(function (b) {
+      if (!b) throw new Error('encode failed');
+      if (b.size <= target) { best = b; bestQ = 0.85; lo = 0.85; }
+      else { hi = 0.85; }
+      return step(0);
+    }).then(function () {
+      if (best) return null;
+      return blobAt(canvas, mime, 0.3).then(function (b) { best = b; bestQ = 0.3; });
+    }).then(function () {
+      if (!best) throw new Error('encode failed');
+      finish(it, best, mime, o, bestQ);
+    });
+  }
+
+  function encodeItem(it) {
+    var mime = outputMime(it);
+    var o = outSize(it);
+
+    if (!needsReencode(it, mime, o)) {
+      finish(it, it.file, mime, o, null);
+      return Promise.resolve();
+    }
+
+    /* 单张上限 4000 万像素（约 160MB 位图），再高容易把标签页撑崩 */
+    if (o.w * o.h > 40000000) return Promise.reject(new Error('too large'));
+    var canvas = document.createElement('canvas');
+    paint(canvas, it, o.w, o.h, mime === 'image/jpeg' ? '#ffffff' : null);
+
+    if (state.sizeMode === 'target' && mime !== 'image/png') {
+      return encodeToTarget(it, canvas, mime, o);
+    }
+
+    var q = (mime === 'image/png') ? undefined : state.quality;
+    return new Promise(function (resolve, reject) {
+      canvas.toBlob(function (blob) {
+        if (!blob) { reject(new Error('encode failed')); return; }
+        finish(it, blob, mime, o, q == null ? null : q);
+        resolve();
+      }, mime, q);
+    });
+  }
+
+  var encodeTimer = null;
+  function scheduleEncode(delay) {
+    clearTimeout(encodeTimer);
+    setBusy(true);
+    encodeTimer = setTimeout(runEncode, delay || 220);
+  }
+
+  function runEncode() {
+    var token = ++state.token;
+    var i = 0;
+    var total = state.items.length;
+    var fails = 0;
+
+    function step() {
+      if (token !== state.token) return;
+      if (i >= state.items.length) {
+        setBusy(false);
+        state.encodeTotal = 0;
+        state.encodeLeft = 0;
+        updateStats();
+        if (fails) toast(fails + ' 张处理失败（图片太大或内存不足），已跳过，导出时会略过它们', 4600);
+        return;
+      }
+      var it = state.items[i++];
+      if (it.blob && it.key === cacheKey(it)) {
+        it.failed = false;
+        step();
+        return;
+      }
+      /* 真正开始算这一张：标记为「进行中」，注意不是「失败」 */
+      it.failed = false;
+      it.encoding = true;
+      state.encodeTotal = total;
+      state.encodeLeft = state.items.length - i + 1;
+      state.encodeHint = state.sizeMode === 'target'
+        ? ('正在按体积优化 ' + i + '/' + state.items.length + '…')
+        : ('正在处理 ' + i + '/' + state.items.length + '…');
+      updateStats();
+      encodeItem(it).then(function () {
+        it.encoding = false;
+        updateCard(it);
+        updateStats();
+        step();
+      }, function () {
+        it.encoding = false;
+        it.blob = null;
+        it.key = '';
+        it.failed = true;
+        fails++;
+        updateCard(it);
+        updateStats();
+        step();
+      });
+    }
+    step();
+  }
+
+  /* 统计「待编码」数量：只有「还没有 blob、也没失败」才算在计算中。
+     否则编码失败的图会被当成「永远在计算」，导出被永久堵死。 */
+  function pendingCount(list) {
+    return list.filter(function (it) {
+      return !it.blob && !it.failed;
+    }).length;
+  }
+
+  function failedCount(list) {
+    return list.filter(function (it) { return !!it.failed; }).length;
+  }
+
+  function pickedItems() {
+    return state.items.filter(function (it) { return it.picked; });
+  }
+
+  function setBusy(b) {
+    state.busy = b;
+    if (!b) state.encodeHint = '';
+    else if (!state.encodeHint) state.encodeHint = '正在处理…';
+    elStats.classList.toggle('calc', b);
+    updateExportButton();
+    /* 统一走 updateStats，不再直接写 elStats */
+    updateStats();
+  }
+
+  function updateExportButton() {
+    var n = pickedItems().length;
+    elBtnDl.disabled = state.busy || state.writing || n === 0;
+    elBtnDl.textContent = state.writing ? '正在保存…' : ('导出' + (n ? '（' + n + ' 张）' : ''));
+    elBtnDlEach.hidden = state.exportMode !== 'download' || state.items.length < 2;
+    elBtnDlEach.disabled = state.busy || n === 0;
+  }
+
+  function updateStats() {
+    var n = state.items.length;
+    elPickCount.textContent = pickedItems().length;
+    elTotalCount.textContent = n;
+    if (!n) {
+      elStats.textContent = '';
+      updateExportButton();
+      return;
+    }
+
+    /* 编码进行中优先显示进度提示，elStats 只在这一处写 */
+    if (state.busy && state.encodeHint) {
+      elStats.textContent = state.encodeHint;
+      updateExportButton();
+      return;
+    }
+    var orig = 0, out = 0, done = 0, lowQ = 0, overN = 0, failN = 0;
+    state.items.forEach(function (it) {
+      orig += it.size;
+      if (it.blob) { out += it.blob.size; done++; }
+      else if (it.failed) failN++;
+      if (it.over) overN++;
+      else if (it.usedQuality != null && it.usedQuality < 0.6) lowQ++;
+    });
+    var txt = '共 ' + n + ' 张';
+    if (done === n) {
+      txt += ' · ' + fmtSize(orig) + ' → ' + fmtSize(out);
+      if (orig > 0 && out < orig) txt += ' · 缩小 ' + Math.round((1 - out / orig) * 100) + '%';
+      else if (orig > 0 && out > orig) txt += ' · 增大 ' + Math.round((out / orig - 1) * 100) + '%';
+      if (overN) txt += '\n' + overN + ' 张压不到目标，把「最大边长」调小一档试试';
+      else if (lowQ) txt += '\n' + lowQ + ' 张画质偏低，目标可以调大一点';
+    } else if (failN && done + failN === n) {
+      /* 都算完了但有失败的：别停在「计算中」，否则用户以为永远没完 */
+      txt += ' · ' + failN + ' 张处理失败';
+    } else {
+      txt += ' · 计算中…';
+    }
+    elStats.textContent = txt;
+    updateExportButton();
+  }
+
+  /* ---------- 卡片 ---------- */
+
+  function buildCard(it) {
+    var card = document.createElement('div');
+    card.className = 'card' + (it.picked ? ' picked' : '');
+    card.dataset.id = it.id;
+    card.innerHTML =
+      '<label class="pick"><input type="checkbox"' + (it.picked ? ' checked' : '') + '></label>' +
+      '<div class="thumb"><canvas></canvas></div>' +
+      '<div class="name" title="' + esc(it.name) + '">' + esc(it.name) + '</div>' +
+      '<div class="meta"></div>' +
+      '<div class="size calc">计算中…</div>' +
+      '<div class="ops">' +
+        '<button data-act="ccw">左转 90°</button>' +
+        '<button data-act="cw">右转 90°</button>' +
+        '<button data-act="fh">左右镜像</button>' +
+        '<button data-act="fv">上下镜像</button>' +
+      '</div>' +
+      '<div class="ops2">' +
+        '<label class="angle">角度<input type="number" step="1" min="-180" max="180" value="0"><span>°</span></label>' +
+        '<span class="spacer-flex"></span>' +
+        '<button data-act="reset" class="link">还原</button>' +
+        '<button data-act="del" class="link danger">删除</button>' +
+      '</div>';
+    paintThumb(card.querySelector('canvas'), it);
+    return card;
+  }
+
+  function updateCard(it) {
+    var card = elGrid.querySelector('[data-id="' + it.id + '"]');
+    if (!card) return;
+    var o = outSize(it);
+    paintThumb(card.querySelector('canvas'), it);
+    card.querySelector('.meta').textContent = it.w + '×' + it.h + ' → ' + o.w + '×' + o.h;
+    var sizeEl = card.querySelector('.size');
+    if (it.blob) {
+      sizeEl.classList.remove('calc');
+      var s;
+      if (it.blob === it.file) {
+        s = fmtSize(it.blob.size) + ' · 原样未动';
+      } else {
+        s = fmtSize(it.blob.size) + (it.size ? '（原 ' + fmtSize(it.size) + '）' : '');
+        if (state.sizeMode === 'target' && it.usedQuality != null) {
+          var qq = Math.round(it.usedQuality * 100);
+          s += ' · 质量 ' + qq;
+          if (it.over) s += ' 未达标';
+          else if (qq < 60) s += ' 偏低';
+        }
+      }
+      sizeEl.textContent = s;
+    } else {
+      sizeEl.classList.add('calc');
+      /* 三态：失败 / 编码中 / 还没开始，别再一律报「无法处理」 */
+      if (it.failed) sizeEl.textContent = '处理失败';
+      else if (it.encoding) sizeEl.textContent = '处理中…';
+      else sizeEl.textContent = '等待处理…';
+    }
+    var inp = card.querySelector('.angle input');
+    if (document.activeElement !== inp) inp.value = it.rot;
+    card.classList.toggle('picked', !!it.picked);
+    var cb = card.querySelector('.pick input');
+    if (cb) cb.checked = !!it.picked;
+  }
+
+  function renderGrid() {
+    elGrid.innerHTML = '';
+    state.items.forEach(function (it) { elGrid.appendChild(buildCard(it)); });
+    elToolbar.hidden = state.items.length === 0;
+    elDrop.hidden = state.items.length > 0;
+    state.items.forEach(updateCard);
+    updateStats();
+    updateExportButton();
+    updateFormatHint();
+  }
+
+  /* ---------- 加入文件 ---------- */
+
+  function loadImage(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        if (!img.naturalWidth || !img.naturalHeight) {
+          URL.revokeObjectURL(url);
+          reject(new Error('empty'));
+          return;
+        }
+        resolve({ img: img, url: url });
+      };
+      img.onerror = function () {
+        URL.revokeObjectURL(url);
+        reject(new Error('load'));
+      };
+      img.src = url;
+    });
+  }
+
+  /* 是不是图片：MIME 为空时用扩展名兜底（有些来源不带 type） */
+  function isImageFile(f) {
+    if (f.type && f.type.indexOf('image/') === 0) return true;
+    return IMG_EXT_RE.test(f.name || '');
+  }
+
+  /* 已占用像素：按累计像素控制内存，比按张数更贴近真实占用 */
+  function usedPixels() {
+    var used = 0;
+    state.items.forEach(function (it) { used += (it.w || 0) * (it.h || 0); });
+    return used;
+  }
+
+  function addFiles(fileList, srcDir, deferRender) {
+    return new Promise(function (resolve) {
+      var files = Array.prototype.slice.call(fileList || []).filter(isImageFile);
+      if (!files.length) {
+        toast('没有识别到图片文件');
+        resolve({ added: 0, fail: 0, skipped: 0 });
+        return;
+      }
+
+      var budget = MAX_PIXELS - usedPixels();
+      if (budget <= 0 || state.items.length >= MAX_COUNT) {
+        toast('已达上限（总量约 2 亿像素），请先导出或清空', 4400);
+        resolve({ added: 0, fail: 0, skipped: files.length });
+        return;
+      }
+
+      var idx = 0, fail = 0, skipped = 0, added = 0;
+
+      function finish() {
+        /* deferRender 用于批量导入多目录时避免每组都重绘一次卡片 */
+        if (!deferRender) { renderGrid(); scheduleEncode(); }
+        resolve({ added: added, fail: fail, skipped: skipped });
+      }
+
+      function next() {
+        if (idx >= files.length) { finish(); return; }
+        if (state.items.length >= MAX_COUNT || budget <= 0) {
+          skipped += files.length - idx;
+          finish();
+          return;
+        }
+        var f = files[idx++];
+        loadImage(f).then(function (r) {
+          var px = r.img.naturalWidth * r.img.naturalHeight;
+          /* 单张就超预算，或累计超预算：直接不收，防止内存被打爆 */
+          if (px > MAX_PIXELS || px > budget) {
+            URL.revokeObjectURL(r.url);
+            skipped++;
+            next();
+            return;
+          }
+          budget -= px;
+          added++;
+          state.items.push({
+            id: ++uid,
+            file: f,
+            srcDir: srcDir || null,
+            url: r.url,
+            img: r.img,
+            name: f.name || ('截图_' + uid + '.png'),
+            size: f.size,
+            w: r.img.naturalWidth,
+            h: r.img.naturalHeight,
+            rot: 0,
+            flipH: false,
+            flipV: false,
+            picked: true,
+            blob: null,
+            mime: '',
+            outName: '',
+            outW: 0,
+            outH: 0,
+            key: '',
+            failed: false,
+            encoding: false
+          });
+          next();
+        }, function () { fail++; next(); });
+      }
+      next();
+    });
+  }
+
+  /* 散装文件（不带来源目录）的统一入口 */
+  function importPlainFiles(files) {
+    return addFiles(files, null).then(function (r) {
+      var msgs = [];
+      if (r.fail) msgs.push(r.fail + ' 张打不开（可能是 HEIC 等格式）');
+      if (r.skipped) msgs.push(r.skipped + ' 张未导入（超出总量 2 亿像素上限）');
+      if (msgs.length) toast(msgs.join('，') + '，已跳过', 4600);
+      return r;
+    });
+  }
+
+  /* ---------- 交互：导入 ---------- */
+
+  elDrop.addEventListener('click', function () { elFile.click(); });
+  document.getElementById('btnAdd').addEventListener('click', function () { elFile.click(); });
+  elFile.addEventListener('change', function () {
+    importPlainFiles(elFile.files);
+    elFile.value = '';
+  });
+
+  ['dragenter', 'dragover'].forEach(function (ev) {
+    document.addEventListener(ev, function (e) {
+      e.preventDefault();
+      elDrop.classList.add('dragover');
+    });
+  });
+  ['dragleave', 'drop'].forEach(function (ev) {
+    document.addEventListener(ev, function (e) {
+      e.preventDefault();
+      if (ev === 'dragleave' && e.relatedTarget) return;
+      elDrop.classList.remove('dragover');
+    });
+  });
+  document.addEventListener('drop', function (e) {
+    e.preventDefault();
+    elDrop.classList.remove('dragover');
+    if (!e.dataTransfer) return;
+    handleDrop(e.dataTransfer);
+  });
+
+  /* 拖入文件或文件夹。
+     关键：必须在这个事件里同步把数据取出来。一旦 await，
+     DataTransferItem 就失效了，getAsFile() 只会返回 null。 */
+  function handleDrop(dt) {
+    var items = dt.items ? Array.prototype.slice.call(dt.items) : [];
+    var files = [];
+    var handlePromises = [];
+
+    for (var i = 0; i < items.length; i++) {
+      var item = items[i];
+      if (item.kind !== 'file') continue;
+
+      var f = null;
+      try { f = item.getAsFile ? item.getAsFile() : null; } catch (err) { f = null; }
+      if (f) files.push(f);
+
+      if (typeof item.getAsFileSystemHandle === 'function') {
+        try { handlePromises.push(item.getAsFileSystemHandle()); } catch (err) { /* ignore */ }
+      }
+    }
+
+    if (!items.length && dt.files && dt.files.length) {
+      files = Array.prototype.slice.call(dt.files);
+    }
+
+    if (!handlePromises.length) {
+      if (files.length) addFiles(files);
+      else toast('没有识别到图片文件');
+      return;
+    }
+
+    Promise.all(handlePromises.map(function (p) {
+      return p.then(function (h) { return h; }, function () { return null; });
+    })).then(function (handles) {
+      var dirs = handles.filter(function (h) { return h && h.kind === 'directory'; });
+
+      if (!dirs.length) {
+        if (files.length) importPlainFiles(files);
+        else toast('没有识别到图片文件');
+        return;
+      }
+
+      var chain = Promise.resolve();
+      dirs.forEach(function (d) {
+        chain = chain.then(function () { return importFromDir(d); });
+      });
+      return chain.then(function () {
+        if (files.length) importPlainFiles(files);
+      });
+    });
+  }
+
+  /* 递归收集图片。每个文件记住它所在的那个目录 handle，
+     这样从子文件夹导入的图，导出时能回到自己的子目录，不会全挤进顶层 */
+  async function collectImages(dirHandle, depth, out, limit) {
+    if (out.length >= limit) return;
+    var entries = [];
+    try {
+      for await (var entry of dirHandle.values()) entries.push(entry);
+    } catch (e) { return; }
+
+    entries.sort(function (a, b) { return a.name.localeCompare(b.name, 'zh'); });
+
+    for (var i = 0; i < entries.length; i++) {
+      if (out.length >= limit) return;
+      var ent = entries[i];
+      if (ent.kind === 'file') {
+        if (!IMG_EXT_RE.test(ent.name)) continue;
+        try { out.push({ file: await ent.getFile(), dir: dirHandle }); } catch (e) { /* ignore */ }
+      } else if (ent.kind === 'directory' && depth < 8) {
+        await collectImages(ent, depth + 1, out, limit);
+      }
+    }
+  }
+
+  async function importFromDir(handle) {
+    var found = [];
+    await collectImages(handle, 0, found, MAX_COUNT);
+
+    if (!found.length) { toast('这个文件夹里没有找到图片'); return; }
+
+    state.dirHandle = handle;
+    state.exportMode = 'folder';
+    idbSet('dir', handle);
+    updateFolderUI();
+    syncExportModeUI();
+
+    /* 按所在目录分组，保证每张图记住自己的来源 */
+    var groups = [];
+    found.forEach(function (f) {
+      var g = null;
+      for (var i = 0; i < groups.length; i++) {
+        if (groups[i].dir === f.dir) { g = groups[i]; break; }
+      }
+      if (!g) { g = { dir: f.dir, files: [] }; groups.push(g); }
+      g.files.push(f.file);
+    });
+
+    var added = 0, skipped = 0, fail = 0;
+    for (var gi = 0; gi < groups.length; gi++) {
+      var r = await addFiles(groups[gi].files, groups[gi].dir, true);
+      added += r.added; skipped += r.skipped; fail += r.fail;
+    }
+    renderGrid();
+    scheduleEncode();
+
+    var msg = '已从「' + (handle.name || '文件夹') + '」导入 ' + added + ' 张，转完就存回原处';
+    if (skipped) msg += '\n' + skipped + ' 张未导入（超出总量 2 亿像素上限）';
+    if (fail) msg += '\n' + fail + ' 张打不开';
+    toast(msg, (skipped || fail) ? 5400 : 4200);
+  }
+
+  /* 直接选文件夹导入：这样工具从一开始就知道图片在哪，覆盖原图就不用再选位置 */
+  function openFolderAndImport() {
+    if (typeof window.showDirectoryPicker !== 'function') {
+      toast('当前浏览器不支持，请用 Chrome 或 Edge 打开');
+      return;
+    }
+    window.showDirectoryPicker({ mode: 'readwrite', id: 'imgtool-out' }).then(function (h) {
+      importFromDir(h);
+    }, function (err) {
+      if (err && err.name !== 'AbortError') toast('打开失败：' + (err.message || err.name));
+    });
+  }
+
+  document.getElementById('btnOpenFolder').addEventListener('click', function (e) {
+    e.stopPropagation();
+    openFolderAndImport();
+  });
+  document.getElementById('btnOpenFolder2').addEventListener('click', openFolderAndImport);
+  document.addEventListener('paste', function (e) {
+    var items = (e.clipboardData && e.clipboardData.items) || [];
+    var files = [];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].kind !== 'file') continue;
+      var f = items[i].getAsFile();
+      if (f && isImageFile(f)) files.push(f);
+    }
+    if (files.length) {
+      e.preventDefault();
+      importPlainFiles(files).then(function (r) {
+        if (r.added) toast('已从剪贴板添加 ' + r.added + ' 张');
+      });
+    }
+  });
+
+  /* ---------- 交互：选中 ---------- */
+
+  function syncPickUI() {
+    elGrid.querySelectorAll('.card').forEach(function (card) {
+      var id = Number(card.dataset.id);
+      var it = state.items.find(function (x) { return x.id === id; });
+      if (!it) return;
+      card.classList.toggle('picked', !!it.picked);
+      var cb = card.querySelector('.pick input');
+      if (cb) cb.checked = !!it.picked;
+    });
+    updateStats();
+  }
+
+  document.getElementById('btnPickAll').addEventListener('click', function () {
+    state.items.forEach(function (it) { it.picked = true; });
+    syncPickUI();
+  });
+  document.getElementById('btnPickNone').addEventListener('click', function () {
+    state.items.forEach(function (it) { it.picked = false; });
+    syncPickUI();
+  });
+
+  /* ---------- 交互：批量旋转 ---------- */
+
+  elToolbar.addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-all]');
+    if (!btn) return;
+    var list = pickedItems();
+    if (!list.length) { toast('请先选中图片'); return; }
+    var act = btn.dataset.all;
+    list.forEach(function (it) {
+      if (act === 'ccw') it.rot = normAngle(it.rot - 90);
+      else if (act === 'cw') it.rot = normAngle(it.rot + 90);
+      else if (act === 'half') it.rot = normAngle(it.rot + 180);
+      else if (act === 'fh') it.flipH = !it.flipH;
+      else if (act === 'fv') it.flipV = !it.flipV;
+      else if (act === 'reset') { it.rot = 0; it.flipH = false; it.flipV = false; }
+    });
+    list.forEach(updateCard);
+    scheduleEncode();
+  });
+
+  function resetAll() {
+    state.items.forEach(function (it) { URL.revokeObjectURL(it.url); });
+    state.items = [];
+    state.token++;
+    elGrid.innerHTML = '';
+    elDrop.hidden = false;
+    elToolbar.hidden = true;
+
+    /* 压缩设置回到默认 */
+    state.quality = 0.92;
+    state.qualityTouched = false;
+    elQuality.value = 92;
+    elQVal.textContent = '92';
+    state.maxEdge = 0;
+    elMaxEdge.value = '0';
+    state.format = 'keep';
+    elFormat.value = 'keep';
+    state.crop = false;
+    elCrop.checked = false;
+    state.sizeMode = 'quality';
+    state.targetBytes = 500 * 1024;
+    elTargetKB.value = 500;
+    syncSizeModeUI();
+    syncPresetUI();
+
+    /* 水印回到默认 */
+    state.wmEnabled = false;
+    elWmEnable.checked = false;
+    elWmBox.hidden = true;
+    elWmBadge.hidden = true;
+    state.wm.text = '';
+    state.wm.type = 'text';
+    state.wm.sizePct = 4;
+    state.wm.color = '#ffffff';
+    state.wm.opacity = 0.75;
+    state.wm.pos = 'br';
+    state.wm.tile = false;
+    state.wm.angle = -30;
+    state.wm.logo = null;
+    state.wm.logoScale = 18;
+    state.wmKey++;
+    syncWmUI();
+
+    /* 导出位置清空，连记住的文件夹一起忘掉 */
+    state.dirHandle = null;
+    state.overwrite = false;
+    elOverwrite.checked = false;
+    state.exportMode = 'download';
+    idbDel('dir');
+    updateFolderUI();
+    syncExportModeUI();
+
+    updateFormatHint();
+    setBusy(false);
+    updateStats();
+  }
+
+  document.getElementById('btnClear').addEventListener('click', function () {
+    if (!state.items.length) return;
+    if (!confirm('清空全部图片？\n\n导出设置、水印、记住的文件夹也会一起恢复成初始状态。\n已经导出到磁盘的文件不受影响。')) return;
+    resetAll();
+  });
+
+  /* ---------- 交互：单张 ---------- */
+
+  elGrid.addEventListener('click', function (e) {
+    var card = e.target.closest('.card');
+    if (!card) return;
+    var id = Number(card.dataset.id);
+    var it = state.items.find(function (x) { return x.id === id; });
+    if (!it) return;
+
+    if (e.target.closest('.pick')) {
+      /* 勾选框自己会翻转 checked，所以以 DOM 的新状态为准写回 state，
+         不能直接调 syncPickUI（它会用旧的 state 把 DOM 覆盖回去） */
+      var cb = card.querySelector('.pick input');
+      it.picked = cb ? cb.checked : !it.picked;
+      syncPickUI();
+      return;
+    }
+
+    var btn = e.target.closest('button[data-act]');
+    if (!btn) {
+      if (e.target.closest('input')) return;
+      it.picked = !it.picked;
+      syncPickUI();
+      return;
+    }
+
+    var act = btn.dataset.act;
+    if (act === 'ccw') it.rot = normAngle(it.rot - 90);
+    else if (act === 'cw') it.rot = normAngle(it.rot + 90);
+    else if (act === 'fh') it.flipH = !it.flipH;
+    else if (act === 'fv') it.flipV = !it.flipV;
+    else if (act === 'reset') { it.rot = 0; it.flipH = false; it.flipV = false; }
+    else if (act === 'del') {
+      URL.revokeObjectURL(it.url);
+      state.items = state.items.filter(function (x) { return x.id !== id; });
+      state.token++;
+      card.remove();
+      if (!state.items.length) {
+        setBusy(false);
+        elDrop.hidden = false;
+        elToolbar.hidden = true;
+      } else {
+        /* 删掉正在跑的那一张后，原来的编码循环已经因 token 变化退出了，
+           剩下没编码的图不会再有人管，必须重新起一轮。 */
+        state.items.forEach(function (x) { x.encoding = false; });
+        scheduleEncode(10);
+      }
+      updateStats();
+      return;
+    }
+    updateCard(it);
+    scheduleEncode();
+  });
+
+  elGrid.addEventListener('input', function (e) {
+    if (!e.target.matches('.angle input')) return;
+    var card = e.target.closest('.card');
+    var id = Number(card.dataset.id);
+    var it = state.items.find(function (x) { return x.id === id; });
+    if (!it) return;
+    var v = e.target.valueAsNumber;
+    if (isNaN(v)) return;
+    if (v > 180) v = 180;
+    if (v < -180) v = -180;
+    it.rot = normAngle(v);
+    updateCard(it);
+    scheduleEncode();
+  });
+
+  /* ---------- 交互：压缩设置 ---------- */
+
+  elQuality.addEventListener('input', function () {
+    var v = Number(elQuality.value);
+    state.quality = v / 100;
+    state.qualityTouched = true;
+    elQVal.textContent = v;
+    syncPresetUI();
+    updateFormatHint();
+    if (state.items.length) scheduleEncode();
+  });
+
+  elMaxEdge.addEventListener('change', function () {
+    state.maxEdge = Number(elMaxEdge.value);
+    if (state.items.length) {
+      state.items.forEach(updateCard);
+      scheduleEncode();
+    }
+  });
+
+  elFormat.addEventListener('change', function () {
+    state.format = elFormat.value;
+    updateFormatHint();
+    if (state.items.length) scheduleEncode();
+  });
+
+  elCrop.addEventListener('change', function () {
+    state.crop = elCrop.checked;
+    if (state.items.length) {
+      state.items.forEach(updateCard);
+      scheduleEncode();
+    }
+  });
+
+  function syncPresetUI() {
+    var q = Math.round(state.quality * 100);
+    document.querySelectorAll('#qPresets button').forEach(function (b) {
+      b.classList.toggle('on', Number(b.dataset.q) === q);
+    });
+  }
+
+  function syncSizeModeUI() {
+    document.querySelectorAll('#sizeMode button').forEach(function (b) {
+      b.classList.toggle('on', b.dataset.sm === state.sizeMode);
+    });
+    elQualityBox.hidden = state.sizeMode !== 'quality';
+    elTargetBox.hidden = state.sizeMode !== 'target';
+  }
+
+  function updateFormatHint() {
+    var txt = '';
+    if (state.items.length) {
+      var pngCount = 0, gifCount = 0, otherCount = 0;
+      state.items.forEach(function (it) {
+        var t = (it.file.type || '').toLowerCase();
+        if (t === 'image/png') pngCount++;
+        else if (t === 'image/gif') gifCount++;
+        else if (t && t !== 'image/jpeg' && t !== 'image/webp') otherCount++;
+      });
+
+      if (state.format === 'image/png') {
+        txt = 'PNG 是无损格式，同等画质下比 WebP 大好几倍，一般不建议输出。';
+      } else if (state.format === 'keep' && gifCount) {
+        /* GIF 进 Canvas 只会画第一帧，必须说清楚，不能默默变静图 */
+        txt = '有 ' + gifCount + ' 张是 GIF：浏览器处理它会丢掉动画，只保留第一帧（会存成 ' +
+          extOf(outputMime({ file: { type: 'image/gif' } })).toUpperCase() + '）。' +
+          '想要动图请另外处理。';
+      } else if (state.format === 'keep' && otherCount) {
+        txt = '有 ' + otherCount + ' 张不是 JPG/PNG/WebP（如 BMP、AVIF），导出时会转成 PNG。';
+      } else if (state.format === 'keep' && pngCount) {
+        txt = '有 ' + pngCount + ' 张是 PNG：PNG 是无损格式，质量和体积设置对它都不起作用，压不小。想真正变小，请把输出格式改成 WebP。';
+      } else if (state.qualityTouched && state.quality < 1) {
+        /* 让用户看到滑块真的生效了，而不是「拖了没反应」 */
+        txt = '已按质量 ' + Math.round(state.quality * 100) + ' 重新压缩，导出的照片会比原图小。拖回 100 则保持原样不重压。';
+      } else if (state.sizeMode === 'quality' && state.quality <= 0.88) {
+        txt = '照片想再小 30% 左右，把格式改成 WebP，画质基本看不出差别。';
+      }
+    }
+    elFormatHint.textContent = txt;
+    elFormatHint.hidden = !txt;
+  }
+
+  document.getElementById('sizeMode').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-sm]');
+    if (!b) return;
+    state.sizeMode = b.dataset.sm;
+    syncSizeModeUI();
+    updateFormatHint();
+    if (state.items.length) {
+      state.items.forEach(updateCard);
+      scheduleEncode(320);
+    }
+  });
+
+  document.getElementById('qPresets').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-q]');
+    if (!b) return;
+    var v = Number(b.dataset.q);
+    state.quality = v / 100;
+    state.qualityTouched = true;
+    elQuality.value = v;
+    elQVal.textContent = v;
+    syncPresetUI();
+    updateFormatHint();
+    if (state.items.length) scheduleEncode();
+  });
+
+  elTargetKB.addEventListener('input', function () {
+    var v = this.valueAsNumber;
+    if (isNaN(v) || v <= 0) return;
+    state.targetBytes = Math.round(v * 1024);
+    if (state.items.length) scheduleEncode(420);
+  });
+
+  /* ---------- 交互：水印 ---------- */
+
+  var elWmEnable = document.getElementById('wmEnable');
+  var elWmBox = document.getElementById('wmBox');
+  var elWmBadge = document.getElementById('wmBadge');
+  var elWmTextPart = document.getElementById('wmTextPart');
+  var elWmImagePart = document.getElementById('wmImagePart');
+  var elWmAngleRow = document.getElementById('wmAngleRow');
+  var wmTimer = null;
+
+  function wmChanged(delay) {
+    state.wmKey++;
+    clearTimeout(wmTimer);
+    wmTimer = setTimeout(function () {
+      if (state.items.length) {
+        state.items.forEach(updateCard);
+        scheduleEncode(10);
+      }
+    }, delay || 120);
+  }
+
+  elWmEnable.addEventListener('change', function () {
+    state.wmEnabled = elWmEnable.checked;
+    elWmBox.hidden = !state.wmEnabled;
+    elWmBadge.hidden = !state.wmEnabled;
+    if (state.wmEnabled && state.wm.type === 'text' && !state.wm.text) {
+      document.getElementById('wmText').focus();
+    }
+    wmChanged(10);
+  });
+
+  document.getElementById('wmType').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-wmtype]');
+    if (!b) return;
+    this.querySelectorAll('button').forEach(function (x) { x.classList.remove('on'); });
+    b.classList.add('on');
+    state.wm.type = b.dataset.wmtype;
+    elWmTextPart.hidden = state.wm.type !== 'text';
+    elWmImagePart.hidden = state.wm.type !== 'image';
+    wmChanged(10);
+  });
+
+  document.getElementById('wmText').addEventListener('input', function () {
+    state.wm.text = this.value;
+    wmChanged(320);
+  });
+
+  document.getElementById('wmSize').addEventListener('input', function () {
+    state.wm.sizePct = Number(this.value);
+    document.getElementById('wmSizeVal').textContent = this.value + '%';
+    wmChanged(200);
+  });
+
+  document.getElementById('wmColor').addEventListener('input', function () {
+    state.wm.color = this.value;
+    wmChanged(160);
+  });
+
+  document.getElementById('wmOpacity').addEventListener('input', function () {
+    state.wm.opacity = Number(this.value) / 100;
+    document.getElementById('wmOpacityVal').textContent = this.value + '%';
+    wmChanged(160);
+  });
+
+  document.getElementById('wmTile').addEventListener('change', function () {
+    state.wm.tile = this.checked;
+    elWmAngleRow.hidden = !this.checked;
+    wmChanged(10);
+  });
+
+  document.getElementById('wmAngle').addEventListener('input', function () {
+    var v = this.valueAsNumber;
+    if (isNaN(v)) return;
+    state.wm.angle = Math.max(-90, Math.min(90, v));
+    wmChanged(200);
+  });
+
+  document.getElementById('wmPos').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-pos]');
+    if (!b) return;
+    this.querySelectorAll('button').forEach(function (x) { x.classList.remove('on'); });
+    b.classList.add('on');
+    state.wm.pos = b.dataset.pos;
+    wmChanged(10);
+  });
+
+  document.getElementById('wmLogoBtn').addEventListener('click', function () {
+    document.getElementById('wmLogo').click();
+  });
+
+  document.getElementById('wmLogo').addEventListener('change', function () {
+    var f = this.files && this.files[0];
+    this.value = '';
+    if (!f) return;
+    loadImage(f).then(function (r) {
+      state.wm.logo = r.img;
+      document.getElementById('wmLogoBtn').textContent = '已选择：' + f.name;
+      wmChanged(10);
+    }, function () { toast('标志图片打不开'); });
+  });
+
+  document.getElementById('wmLogoScale').addEventListener('input', function () {
+    state.wm.logoScale = Number(this.value);
+    document.getElementById('wmLogoVal').textContent = this.value + '%';
+    wmChanged(200);
+  });
+
+  function syncWmUI() {
+    document.querySelectorAll('#wmType button').forEach(function (b) {
+      b.classList.toggle('on', b.dataset.wmtype === state.wm.type);
+    });
+    elWmTextPart.hidden = state.wm.type !== 'text';
+    elWmImagePart.hidden = state.wm.type !== 'image';
+    document.getElementById('wmText').value = state.wm.text;
+    document.getElementById('wmSize').value = state.wm.sizePct;
+    document.getElementById('wmSizeVal').textContent = state.wm.sizePct + '%';
+    document.getElementById('wmColor').value = state.wm.color;
+    var op = Math.round(state.wm.opacity * 100);
+    document.getElementById('wmOpacity').value = op;
+    document.getElementById('wmOpacityVal').textContent = op + '%';
+    document.getElementById('wmTile').checked = state.wm.tile;
+    elWmAngleRow.hidden = !state.wm.tile;
+    document.getElementById('wmAngle').value = state.wm.angle;
+    document.getElementById('wmLogoScale').value = state.wm.logoScale;
+    document.getElementById('wmLogoVal').textContent = state.wm.logoScale + '%';
+    document.getElementById('wmLogoBtn').textContent = state.wm.logo
+      ? '已选择标志图片（点此更换）'
+      : '选择标志图片（PNG 透明底最佳）';
+    document.querySelectorAll('#wmPos button').forEach(function (b) {
+      b.classList.toggle('on', b.dataset.pos === state.wm.pos);
+    });
+  }
+
+  syncWmUI();
+
+  /* ---------- 记住文件夹（IndexedDB 持久化） ---------- */
+
+  var IDB_NAME = 'imgtool-fs';
+  var idbPromise = null;
+
+  function idbOpen() {
+    if (idbPromise) return idbPromise;
+    idbPromise = new Promise(function (res) {
+      try {
+        var req = indexedDB.open(IDB_NAME, 1);
+        req.onupgradeneeded = function () {
+          var db = req.result;
+          if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv');
+        };
+        req.onsuccess = function () { res(req.result); };
+        req.onerror = function () { res(null); };
+        req.onblocked = function () { res(null); };
+      } catch (e) { res(null); }
+    });
+    return idbPromise;
+  }
+
+  function idbSet(k, v) {
+    return idbOpen().then(function (db) {
+      if (!db) return;
+      return new Promise(function (res) {
+        try {
+          var tx = db.transaction('kv', 'readwrite');
+          tx.objectStore('kv').put(v, k);
+          tx.oncomplete = function () { res(); };
+          tx.onerror = function () { res(); };
+          tx.onabort = function () { res(); };
+        } catch (e) { res(); }
+      });
+    });
+  }
+
+  function idbGet(k) {
+    return idbOpen().then(function (db) {
+      if (!db) return null;
+      return new Promise(function (res) {
+        try {
+          var tx = db.transaction('kv', 'readonly');
+          var r = tx.objectStore('kv').get(k);
+          r.onsuccess = function () { res(r.result || null); };
+          r.onerror = function () { res(null); };
+        } catch (e) { res(null); }
+      });
+    });
+  }
+
+  function idbDel(k) {
+    return idbOpen().then(function (db) {
+      if (!db) return;
+      return new Promise(function (res) {
+        try {
+          var tx = db.transaction('kv', 'readwrite');
+          tx.objectStore('kv').delete(k);
+          tx.oncomplete = function () { res(); };
+          tx.onerror = function () { res(); };
+        } catch (e) { res(); }
+      });
+    });
+  }
+
+  /* ---------- 导出位置 ---------- */
+
+  var elExportMode = document.getElementById('exportMode');
+  var elFolderBox = document.getElementById('folderBox');
+  var elFolderName = document.getElementById('folderName');
+  var elOverwrite = document.getElementById('overwrite');
+  var elBtnPickFolder = document.getElementById('btnPickFolder');
+
+  var FS_SUPPORT = (typeof window.showDirectoryPicker === 'function');
+
+  function updateFolderUI() {
+    if (state.dirHandle) {
+      elFolderName.textContent = state.dirHandle.name || '已选文件夹';
+      elFolderName.classList.add('set');
+      elBtnPickFolder.textContent = '换一个';
+    } else {
+      elFolderName.textContent = FS_SUPPORT ? '还没有来源文件夹' : '当前浏览器不支持';
+      elFolderName.classList.remove('set');
+      elBtnPickFolder.textContent = '另存到…';
+      elBtnPickFolder.disabled = !FS_SUPPORT;
+    }
+
+    /* 没有来源文件夹就没法覆盖原图，直接禁用并取消勾选 */
+    elOverwrite.disabled = !state.dirHandle;
+    if (!state.dirHandle) {
+      elOverwrite.checked = false;
+      state.overwrite = false;
+    }
+
+    var folderHint = document.getElementById('folderHint');
+    if (state.dirHandle) {
+      folderHint.textContent = '点「导出」就直接写进这个文件夹，不会再弹窗问位置。勾上覆盖就替换原图。';
+    } else {
+      folderHint.textContent = '用「选择文件夹导入」或把文件夹拖进来，工具才知道图片在哪个文件夹，转完直接存回原处，覆盖原图也不用再选位置。';
+    }
+
+    var folderModeBtn = elExportMode.querySelector('[data-mode="folder"]');
+    if (folderModeBtn) folderModeBtn.disabled = !FS_SUPPORT || !state.dirHandle;
+
+    if (!state.dirHandle && state.exportMode === 'folder') {
+      state.exportMode = 'download';
+      elExportMode.querySelectorAll('button').forEach(function (x) {
+        x.classList.toggle('on', x.dataset.mode === 'download');
+      });
+    }
+
+    updateExportButton();
+  }
+
+  function syncExportModeUI() {
+    elExportMode.querySelectorAll('button').forEach(function (x) {
+      x.classList.toggle('on', x.dataset.mode === state.exportMode);
+    });
+    updateExportButton();
+  }
+
+  elExportMode.addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-mode]');
+    if (!b || b.disabled) return;
+    state.exportMode = b.dataset.mode;
+    syncExportModeUI();
+    if (state.exportMode === 'folder' && !FS_SUPPORT) {
+      toast('当前浏览器不支持直接存到文件夹，请用 Chrome 或 Edge');
+    }
+  });
+
+  function pickFolder() {
+    if (!FS_SUPPORT) {
+      toast('当前浏览器不支持直接存到文件夹，请用 Chrome 或 Edge 打开');
+      return Promise.resolve(null);
+    }
+    return window.showDirectoryPicker({ mode: 'readwrite', id: 'imgtool-out' }).then(function (h) {
+      state.dirHandle = h;
+      state.exportMode = 'folder';
+      idbSet('dir', h);
+      updateFolderUI();
+      syncExportModeUI();
+      toast('已记住文件夹：' + (h.name || '所选文件夹'));
+      return h;
+    }, function (err) {
+      if (err && err.name !== 'AbortError') toast('选择失败：' + (err.message || err.name));
+      return null;
+    });
+  }
+
+  elBtnPickFolder.addEventListener('click', function () { pickFolder(); });
+
+  elOverwrite.addEventListener('change', function () {
+    if (!elOverwrite.checked) {
+      state.overwrite = false;
+      return;
+    }
+
+    var tip = '开启后，导出会用同样的文件名写回「' + (state.dirHandle.name || '所选文件夹') + '」，原图会被替换。\n\n' +
+      '程序会先把原图备份到该文件夹下的「原图备份」子文件夹，但建议你先确认一遍文件夹选对了。\n\n确定开启吗？';
+
+    if (!confirm(tip)) {
+      elOverwrite.checked = false;
+      return;
+    }
+
+    state.overwrite = true;
+
+    /* 勾了覆盖就是要写文件，自动切到存文件夹 */
+    if (state.exportMode !== 'folder') {
+      state.exportMode = 'folder';
+      syncExportModeUI();
+    }
+  });
+
+  async function ensurePerm(h) {
+    if (typeof h.queryPermission !== 'function') return true;
+    var opts = { mode: 'readwrite' };
+    try {
+      if (await h.queryPermission(opts) === 'granted') return true;
+      if (await h.requestPermission(opts) === 'granted') return true;
+    } catch (e) { /* ignore */ }
+    return false;
+  }
+
+  /* 待导出的图按目标目录分组：优先回各自的来源目录，没有来源的落到当前选定目录 */
+  function groupByDir(targets) {
+    var groups = [];
+    targets.forEach(function (it) {
+      var d = it.srcDir || state.dirHandle;
+      if (!d) return;
+      var g = null;
+      for (var i = 0; i < groups.length; i++) {
+        if (groups[i].dir === d) { g = groups[i]; break; }
+      }
+      if (!g) { g = { dir: d, items: [], used: {} }; groups.push(g); }
+      g.items.push(it);
+    });
+    return groups;
+  }
+
+  async function writeToFolder(targets) {
+    var groups = groupByDir(targets);
+    if (!groups.length) {
+      toast('没有可写入的文件夹，请先选择文件夹或把文件夹拖进来', 4200);
+      return;
+    }
+
+    /* 所有目录的权限请求一次性同步发起，确保还在用户点击的手势窗口内 */
+    var results = await Promise.all(groups.map(function (g) { return ensurePerm(g.dir); }));
+
+    var ready = [];
+    var denied = 0;
+    for (var i = 0; i < groups.length; i++) {
+      if (results[i]) ready.push(groups[i]);
+      else denied += groups[i].items.length;
+    }
+    if (!ready.length) {
+      toast('没有拿到文件夹的写入权限，请在弹窗里点「允许」后重试', 4400);
+      return;
+    }
+
+    state.writing = true;
+    updateExportButton();
+
+    var total = 0;
+    ready.forEach(function (g) { total += g.items.length; });
+
+    var ok = 0, fail = 0, backup = 0, renamed = 0, done = 0;
+
+    for (var gi = 0; gi < ready.length; gi++) {
+      var g = ready[gi];
+      var backupDir = null;   /* 懒创建：没有真正覆盖时不要留空目录 */
+
+      for (var k = 0; k < g.items.length; k++) {
+        var it = g.items[k];
+        done++;
+        elBtnDl.textContent = '正在保存 ' + done + '/' + total;
+        try {
+          /* 改了输出格式就不是覆盖：按另存处理，原图保持不动 */
+          var inPlace = state.overwrite && canOverwriteInPlace(it);
+          if (state.overwrite && !inPlace) renamed++;
+
+          var name = inPlace ? overwriteName(it) : uniqueName(buildName(it), g.used);
+
+          if (inPlace && backupDir === null) {
+            /* 第一次真的需要备份时才建目录 */
+            try { backupDir = await g.dir.getDirectoryHandle('原图备份', { create: true }); }
+            catch (e) { backupDir = false; }
+          }
+
+          if (inPlace && backupDir) {
+            /* 备份查找一律用【原文件名】，与写入用的目标名解耦 */
+            var origName = it.name;
+            var backed = false;
+            try { await backupDir.getFileHandle(origName); backed = true; } catch (e) { backed = false; }
+            if (!backed) {
+              try {
+                var origFh = await g.dir.getFileHandle(origName);
+                var of = await origFh.getFile();
+                var bh = await backupDir.getFileHandle(origName, { create: true });
+                var bw = await bh.createWritable();
+                await bw.write(of);
+                await bw.close();
+                backup++;
+              } catch (e2) { /* 目标目录里没有这个原文件，无需备份 */ }
+            }
+          }
+
+          var fh = await g.dir.getFileHandle(name, { create: true });
+          var w = await fh.createWritable();
+          await w.write(it.blob);
+          await w.close();
+          ok++;
+        } catch (e) {
+          fail++;
+        }
+      }
+    }
+
+    state.writing = false;
+    updateExportButton();
+
+    var dirName = ready.length === 1
+      ? (ready[0].dir.name || '所选文件夹')
+      : ('共 ' + ready.length + ' 个文件夹');
+    var msg = '已保存 ' + ok + ' 张到「' + dirName + '」';
+    if (backup) msg += '，原图已备份 ' + backup + ' 张';
+    if (renamed) msg += '\n' + renamed + ' 张改了输出格式，原图没动，已另存为新文件';
+    if (denied) msg += '\n' + denied + ' 张因没有目录权限被跳过';
+    if (fail) msg += '\n' + fail + ' 张写入失败';
+    toast(msg, (renamed || denied || fail) ? 6200 : 4200);
+  }
+
+  /* ---------- 下载 ---------- */
+
+  function saveBlob(blob, name) {
+    var a = document.createElement('a');
+    var url = URL.createObjectURL(blob);
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 6000);
+  }
+
+  var crcTable = null;
+  function crc32(u8) {
+    if (!crcTable) {
+      crcTable = new Uint32Array(256);
+      for (var i = 0; i < 256; i++) {
+        var c = i;
+        for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        crcTable[i] = c >>> 0;
+      }
+    }
+    var crc = 0xFFFFFFFF;
+    for (var j = 0; j < u8.length; j++) crc = crcTable[(crc ^ u8[j]) & 0xFF] ^ (crc >>> 8);
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  }
+
+  function makeZip(entries) {
+    var enc = new TextEncoder();
+    var parts = [];
+    var central = [];
+    var offset = 0;
+
+    /* MS-DOS 时间格式：写当前时间，解压后不会再显示 1979/12/31 */
+    var now = new Date();
+    var dosTime = ((now.getHours() & 0x1F) << 11) | ((now.getMinutes() & 0x3F) << 5) | ((now.getSeconds() >> 1) & 0x1F);
+    var dosDate = (((now.getFullYear() - 1980) & 0x7F) << 9) | (((now.getMonth() + 1) & 0x0F) << 5) | (now.getDate() & 0x1F);
+
+    function set16(dv, off, val) { dv.setUint16(off, val, true); }
+    function set32(dv, off, val) { dv.setUint32(off, val >>> 0, true); }
+
+    return Promise.all(entries.map(function (en) {
+      return en.blob.arrayBuffer().then(function (buf) {
+        return { name: en.name, data: new Uint8Array(buf) };
+      });
+    })).then(function (list) {
+      list.forEach(function (f) {
+        var nameBytes = enc.encode(f.name);
+        var crc = crc32(f.data);
+        var local = new Uint8Array(30 + nameBytes.length);
+        var dv = new DataView(local.buffer);
+        set32(dv, 0, 0x04034b50);
+        set16(dv, 4, 20);
+        set16(dv, 6, 0x0800);
+        set16(dv, 8, 0);
+        set16(dv, 10, dosTime);
+        set16(dv, 12, dosDate);
+        set32(dv, 14, crc);
+        set32(dv, 18, f.data.length);
+        set32(dv, 22, f.data.length);
+        set16(dv, 26, nameBytes.length);
+        set16(dv, 28, 0);
+        local.set(nameBytes, 30);
+        parts.push(local, f.data);
+
+        var cen = new Uint8Array(46 + nameBytes.length);
+        var dv2 = new DataView(cen.buffer);
+        set32(dv2, 0, 0x02014b50);
+        set16(dv2, 4, 20);
+        set16(dv2, 6, 20);
+        set16(dv2, 8, 0x0800);
+        set16(dv2, 10, 0);
+        set16(dv2, 12, dosTime);
+        set16(dv2, 14, dosDate);
+        set32(dv2, 16, crc);
+        set32(dv2, 20, f.data.length);
+        set32(dv2, 24, f.data.length);
+        set16(dv2, 28, nameBytes.length);
+        set16(dv2, 30, 0);
+        set16(dv2, 32, 0);
+        set16(dv2, 34, 0);
+        set16(dv2, 36, 0);
+        set32(dv2, 38, 0);
+        set32(dv2, 42, offset);
+        cen.set(nameBytes, 46);
+        central.push(cen);
+
+        offset += local.length + f.data.length;
+      });
+
+      var cdSize = central.reduce(function (a, c) { return a + c.length; }, 0);
+      var eocd = new Uint8Array(22);
+      var dv3 = new DataView(eocd.buffer);
+      set32(dv3, 0, 0x06054b50);
+      set16(dv3, 4, 0);
+      set16(dv3, 6, 0);
+      set16(dv3, 8, list.length);
+      set16(dv3, 10, list.length);
+      set32(dv3, 12, cdSize);
+      set32(dv3, 16, offset);
+      set16(dv3, 20, 0);
+
+      return new Blob(parts.concat(central, [eocd]), { type: 'application/zip' });
+    });
+  }
+
+  function uniqueName(name, used) {
+    if (!used[name]) { used[name] = 1; return name; }
+    var dot = name.lastIndexOf('.');
+    var base = dot > 0 ? name.slice(0, dot) : name;
+    var ext = dot > 0 ? name.slice(dot) : '';
+    var n = used[name] + 1;
+    var cand = base + '(' + n + ')' + ext;
+    while (used[cand]) { n++; cand = base + '(' + n + ')' + ext; }
+    used[name] = n;
+    used[cand] = 1;
+    return cand;
+  }
+
+  function downloadZip(targets) {
+    if (!targets.length) { toast('还没有处理好的图片'); return; }
+    if (targets.length === 1) {
+      saveBlob(targets[0].blob, targets[0].outName);
+      toast('已下载 1 张');
+      return;
+    }
+    var used = {};
+    var entries = targets.map(function (it) {
+      return { name: uniqueName(it.outName || 'image.png', used), blob: it.blob };
+    });
+    elBtnDl.disabled = true;
+    elBtnDl.textContent = '正在打包…';
+    makeZip(entries).then(function (zip) {
+      var d = new Date();
+      var stamp = d.getFullYear() + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0');
+      saveBlob(zip, '图片_' + stamp + '.zip');
+      toast('已打包 ' + targets.length + ' 张，共 ' + fmtSize(zip.size));
+    }, function () {
+      toast('打包失败，请试试「逐张下载」');
+    }).then(function () {
+      updateExportButton();
+    });
+  }
+
+  function downloadEach() {
+    var targets = pickedItems().filter(function (it) { return it.blob; });
+    if (!targets.length) { toast('还没有处理好的图片'); return; }
+    var used = {};
+    targets.forEach(function (it, i) {
+      setTimeout(function () {
+        saveBlob(it.blob, uniqueName(it.outName || 'image.png', used));
+      }, i * 320);
+    });
+    toast('开始逐张下载，浏览器若询问请点「允许」');
+  }
+
+  async function onExport() {
+    var targets = pickedItems();
+    if (!targets.length) { toast('请先选中要导出的图片'); return; }
+
+    /* 只有「真的还在算」才拦；处理失败的不能拦，否则永远导不出去 */
+    var pending = pendingCount(targets);
+    if (pending) { toast('还有 ' + pending + ' 张在计算，稍等一下再导出'); return; }
+
+    var failed = failedCount(targets);
+    if (failed === targets.length) {
+      toast('选中的 ' + failed + ' 张都处理失败了，换一张或调小「最大边长」试试', 4200);
+      return;
+    }
+    if (failed) {
+      var msg = '有 ' + failed + ' 张处理失败，本次只导出剩下 ' + (targets.length - failed) + ' 张。\n\n继续吗？';
+      if (!confirm(msg)) return;
+      targets = targets.filter(function (it) { return it.blob; });
+    }
+
+    if (state.exportMode === 'folder') {
+      /* 所有目标目录的权限统一在 writeToFolder 里一次性发起 */
+      if (!state.dirHandle && !targets.some(function (it) { return it.srcDir; })) {
+        var h = await pickFolder();
+        if (!h) return;
+      }
+      await writeToFolder(targets);
+    } else {
+      downloadZip(targets);
+    }
+  }
+
+  elBtnDl.addEventListener('click', onExport);
+  elBtnDlEach.addEventListener('click', downloadEach);
+
+  /* ---------- 启动 ---------- */
+
+  /* 调试入口：便于排查问题，不影响正常使用 */
+  window.__imgtool = {
+    state: state,
+    setDir: function (h) {
+      state.dirHandle = h;
+      state.exportMode = 'folder';
+      idbSet('dir', h);
+      updateFolderUI();
+      syncExportModeUI();
+    },
+    export: onExport,
+    write: writeToFolder,
+    importDir: importFromDir,
+    addFiles: addFiles
+  };
+
+  state.exportMode = 'download';
+  syncSizeModeUI();
+  syncPresetUI();
+  syncExportModeUI();
+  updateFolderUI();
+  updateExportButton();
+  updateStats();
+  updateFormatHint();
+
+  /* 恢复上次记住的文件夹 */
+  idbGet('dir').then(function (h) {
+    if (h && h.kind === 'directory') {
+      state.dirHandle = h;
+      state.exportMode = 'folder';
+      updateFolderUI();
+      syncExportModeUI();
+    }
+  });
+})();
+</script>
+</body>
+</html>
