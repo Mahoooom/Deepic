@@ -44,7 +44,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFGRTM0Mjg5QjJFNjNGOUMKUldTY1ArYXlpVUxqSDRDcExTS0pRVVZETVNCakVzS2FtT0MxSHZrVWNHaWpoTUhlYU1DcU10dHkK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZBNzFFRTA3ODc3OUZDMUUKUldRZS9IbUhCKzV4K21xRm1kVlhUcDZJeVhvQ25sVXdGRFh6ZW4wdFdmUzc0Q1VMQXhEYStxRjkK",
       "endpoints": [
         "https://github.com/Mahoooom/Deepic/releases/latest/download/latest.json"
       ],
