@@ -1,3 +1,5 @@
+mod updater;
+
 use tauri::{Emitter, Manager};
 use tauri_plugin_fs::FsExt;
 
@@ -7,7 +9,9 @@ pub fn run() {
         // fs 要先注册，对话框才能把用户选中的路径放进它的访问范围。
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
+            updater::schedule(app);
             let Some(window) = app.get_webview_window("main") else {
                 return Ok(());
             };

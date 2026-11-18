@@ -18,6 +18,16 @@
 
 ---
 
+## 应用内更新
+
+从 **0.1.3** 起，打开软件会自动检查有没有新版本。有的话会弹出中文提示，点 **立即更新** 就下载安装并重启，不用再去 GitHub 手动下载覆盖。
+
+如果你现在装的是 **0.1.2 或更早**，那一版还没有更新功能，需要先按上面的步骤手动安装一次 **0.1.3**。装好 0.1.3 之后，以后的版本就可以在软件里直接更新。
+
+点 **稍后** 会继续用当前版本，下次打开再提醒。
+
+---
+
 ## 这个软件做什么
 
 - 批量选图、旋转、压缩、加水印
@@ -36,7 +46,7 @@
 2. **助手改完代码并 push 到 GitHub 的 `main` 分支**。
 3. **GitHub Actions 自动打包**  
    打开仓库的 [Actions](https://github.com/Mahoooom/Deepic/actions)，等绿色勾。
-4. **到 Releases 下载新版本安装包**。
+4. **已安装 0.1.3 或更新版本时**，下次打开软件会提示更新，点一下即可。还在用 0.1.2 或更早版本时，仍要到 Releases 手动安装一次 0.1.3。
 
 更短的说明见项目文档：`docs/iteration-guide.md`（在 Cursor 项目里）。
 
@@ -61,4 +71,5 @@ cargo tauri build  # 本地打包（Windows 上生成 exe/msi）
 - 应用标识：`com.deepic.app`
 - 窗口标题：图片旋转压缩工具（约 1100×750）
 - `frontendDist` 指向 `../src`，`beforeBuildCommand` 为空
-- CI：`.github/workflows/release.yml`（`tauri-apps/tauri-action`，仅 Windows，未签名）
+- CI：`.github/workflows/release.yml`（`tauri-apps/tauri-action`，仅 Windows，安装包未做代码签名）
+- 应用内更新：Tauri updater，清单地址是 GitHub Release 上的 `latest.json`。签名私钥只放在 GitHub Actions secrets（`TAURI_SIGNING_PRIVATE_KEY`、`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`），公钥写在 `src-tauri/tauri.conf.json`
